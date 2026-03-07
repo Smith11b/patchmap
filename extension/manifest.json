@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "PatchMap",
+  "version": "0.0.1",
+  "description": "View PatchMap on GitHub pull requests.",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*/*/pull/*"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "host_permissions": [
+    "https://github.com/*",
+    "http://localhost:3000/*"
+  ],
+  "permissions": []
+}
