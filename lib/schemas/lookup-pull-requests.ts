@@ -37,6 +37,7 @@ export const lookupPullRequestResponseSchema = z.object({
       filePath: z.string(),
       oldFilePath: z.string().nullable().optional(),
       changeType: z.enum(["added", "modified", "deleted", "renamed"]),
+      patchText: z.string().nullable().optional(),
       fileExtension: z.string().nullable().optional(),
       topLevelDir: z.string().nullable().optional(),
       displayOrder: z.number().int(),
