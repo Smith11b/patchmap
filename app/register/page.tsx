@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { parseProviderPullRequestUrl } from "@/lib/providers/parse-provider-pull-request-url";
 
 type RegisterResponse = {
   workspace: {
@@ -24,95 +25,7 @@ type RegisterResponse = {
   fileCount: number;
 };
 
-type RegisterRequestPayload =
-  | {
-      provider: "github";
-      owner: string;
-      name: string;
-      prNumber: number;
-    }
-  | {
-      provider: "gitlab";
-      projectPath: string;
-      prNumber: number;
-    };
-
 const DEFAULT_WORKSPACE_SLUG = "patchmap-dev";
-
-function parseProviderUrl(rawUrl: string):
-  | { payload: RegisterRequestPayload }
-  | { error: string } {
-  const trimmed = rawUrl.trim();
-
-  if (!trimmed) {
-    return { error: "PR/MR URL is required." };
-  }
-
-  let url: URL;
-
-  try {
-    url = new URL(trimmed);
-  } catch {
-    return {
-      error:
-        "Unsupported URL format. Use a GitHub PR URL or GitLab MR URL.",
-    };
-  }
-
-  const host = url.hostname.toLowerCase();
-  const segments = url.pathname.split("/").filter(Boolean);
-
-  if (
-    host === "github.com" &&
-    segments.length >= 4 &&
-    segments[2] === "pull"
-  ) {
-    const prNumber = Number(segments[3]);
-
-    if (!Number.isInteger(prNumber) || prNumber <= 0) {
-      return { error: "GitHub PR number is invalid." };
-    }
-
-    return {
-      payload: {
-        provider: "github",
-        owner: segments[0],
-        name: segments[1],
-        prNumber,
-      },
-    };
-  }
-
-  const separatorIndex = segments.indexOf("-");
-  if (
-    separatorIndex > 0 &&
-    segments[separatorIndex + 1] === "merge_requests" &&
-    segments.length > separatorIndex + 2
-  ) {
-    const prNumber = Number(segments[separatorIndex + 2]);
-
-    if (!Number.isInteger(prNumber) || prNumber <= 0) {
-      return { error: "GitLab MR number is invalid." };
-    }
-
-    const projectPath = segments.slice(0, separatorIndex).join("/");
-    if (!projectPath) {
-      return { error: "GitLab project path is invalid." };
-    }
-
-    return {
-      payload: {
-        provider: "gitlab",
-        projectPath,
-        prNumber,
-      },
-    };
-  }
-
-  return {
-    error: "Unsupported URL format. Use a GitHub PR URL or GitLab MR URL.",
-  };
-}
 
 export default function RegisterPage() {
   const [prUrl, setPrUrl] = useState("");
@@ -122,7 +35,7 @@ export default function RegisterPage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
 
-  const parsed = useMemo(() => parseProviderUrl(prUrl), [prUrl]);
+  const parsed = useMemo(() => parseProviderPullRequestUrl(prUrl), [prUrl]);
 
   const submitDisabled =
     isSubmitting || !prUrl.trim() || !workspaceSlug.trim() || "error" in parsed;
@@ -131,7 +44,8 @@ export default function RegisterPage() {
     event.preventDefault();
 
     const nextWorkspaceSlug = workspaceSlug.trim();
-    const validation = parseProviderUrl(prUrl);
+    const nextPrUrl = prUrl.trim();
+    const validation = parseProviderPullRequestUrl(nextPrUrl);
 
     setFormError(null);
     setRequestError(null);
@@ -150,14 +64,14 @@ export default function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/pull-requests/register-from-provider", {
+      const response = await fetch("/api/pull-requests/register-by-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           workspaceSlug: nextWorkspaceSlug,
-          ...validation.payload,
+          url: nextPrUrl,
         }),
       });
 
@@ -238,7 +152,7 @@ export default function RegisterPage() {
               {result.repository.provider})
             </li>
             <li>
-              PR: #{result.pullRequest.prNumber} — {result.pullRequest.title}
+              PR: #{result.pullRequest.prNumber} - {result.pullRequest.title}
             </li>
             <li>File count: {result.fileCount}</li>
           </ul>
