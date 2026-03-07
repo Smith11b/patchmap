@@ -1,7 +1,7 @@
 import {
   LookupPullRequestQuery,
   LookupPullRequestResponse,
-} from "@/lib/schemas/lookup-pull-request";
+} from "@/lib/schemas/lookup-pull-requests";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function lookupPullRequest(
