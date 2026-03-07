@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { parseProviderPullRequestUrl } from "@/lib/providers/parse-provider-pull-request-url";
 
 type RegisterResponse = {
   workspace: {
@@ -24,137 +25,7 @@ type RegisterResponse = {
   fileCount: number;
 };
 
-type SuggestedGroup = {
-  title: string;
-  description?: string;
-  orderIndex: number;
-  fileIds: string[];
-};
-
-type SuggestedGroupsResponse = {
-  pullRequestId: string;
-  groups: SuggestedGroup[];
-};
-
-type LookupResponse = {
-  files: Array<{
-    id: string;
-    filePath: string;
-    oldFilePath?: string | null;
-    changeType: "added" | "modified" | "deleted" | "renamed";
-    displayOrder: number;
-  }>;
-};
-
-type RegisterRequestPayload =
-  | {
-      provider: "github";
-      owner: string;
-      name: string;
-      prNumber: number;
-    }
-  | {
-      provider: "gitlab";
-      projectPath: string;
-      prNumber: number;
-    };
-
 const DEFAULT_WORKSPACE_SLUG = "patchmap-dev";
-
-function parseProviderUrl(rawUrl: string):
-  | { payload: RegisterRequestPayload }
-  | { error: string } {
-  const trimmed = rawUrl.trim();
-
-  if (!trimmed) {
-    return { error: "PR/MR URL is required." };
-  }
-
-  let url: URL;
-
-  try {
-    url = new URL(trimmed);
-  } catch {
-    return {
-      error:
-        "Unsupported URL format. Use a GitHub PR URL or GitLab MR URL.",
-    };
-  }
-
-  const host = url.hostname.toLowerCase();
-  const segments = url.pathname.split("/").filter(Boolean);
-
-  if (
-    host === "github.com" &&
-    segments.length >= 4 &&
-    segments[2] === "pull"
-  ) {
-    const prNumber = Number(segments[3]);
-
-    if (!Number.isInteger(prNumber) || prNumber <= 0) {
-      return { error: "GitHub PR number is invalid." };
-    }
-
-    return {
-      payload: {
-        provider: "github",
-        owner: segments[0],
-        name: segments[1],
-        prNumber,
-      },
-    };
-  }
-
-  const separatorIndex = segments.indexOf("-");
-  if (
-    separatorIndex > 0 &&
-    segments[separatorIndex + 1] === "merge_requests" &&
-    segments.length > separatorIndex + 2
-  ) {
-    const prNumber = Number(segments[separatorIndex + 2]);
-
-    if (!Number.isInteger(prNumber) || prNumber <= 0) {
-      return { error: "GitLab MR number is invalid." };
-    }
-
-    const projectPath = segments.slice(0, separatorIndex).join("/");
-    if (!projectPath) {
-      return { error: "GitLab project path is invalid." };
-    }
-
-    return {
-      payload: {
-        provider: "gitlab",
-        projectPath,
-        prNumber,
-      },
-    };
-  }
-
-  return {
-    error: "Unsupported URL format. Use a GitHub PR URL or GitLab MR URL.",
-  };
-}
-
-function buildLookupQuery(payload: RegisterRequestPayload): URLSearchParams {
-  if (payload.provider === "github") {
-    return new URLSearchParams({
-      provider: payload.provider,
-      owner: payload.owner,
-      name: payload.name,
-      prNumber: String(payload.prNumber),
-    });
-  }
-
-  const [owner, name] = payload.projectPath.split(/\/(?!.*\/)/);
-
-  return new URLSearchParams({
-    provider: payload.provider,
-    owner,
-    name,
-    prNumber: String(payload.prNumber),
-  });
-}
 
 export default function RegisterPage() {
   const [prUrl, setPrUrl] = useState("");
@@ -163,71 +34,22 @@ export default function RegisterPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
-  const [groupingError, setGroupingError] = useState<string | null>(null);
-  const [groups, setGroups] = useState<SuggestedGroup[]>([]);
-  const [fileMap, setFileMap] = useState<Map<string, LookupResponse["files"][number]>>(
-    new Map()
-  );
-  const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [annotations, setAnnotations] = useState<Record<string, string>>({});
 
-  const parsed = useMemo(() => parseProviderUrl(prUrl), [prUrl]);
+  const parsed = useMemo(() => parseProviderPullRequestUrl(prUrl), [prUrl]);
 
   const submitDisabled =
     isSubmitting || !prUrl.trim() || !workspaceSlug.trim() || "error" in parsed;
-
-  const selectedGroup = groups[selectedGroupIndex] ?? null;
-
-  async function loadGroupsAndFiles(
-    payload: RegisterRequestPayload,
-    registerData: RegisterResponse
-  ) {
-    const [lookupResponse, groupsResponse] = await Promise.all([
-      fetch(`/api/pull-requests/lookup?${buildLookupQuery(payload).toString()}`),
-      fetch(
-        `/api/patchmaps/suggest-groups?pullRequestId=${registerData.pullRequest.id}`
-      ),
-    ]);
-
-    if (!lookupResponse.ok) {
-      throw new Error("Unable to fetch PR files for viewer.");
-    }
-
-    if (!groupsResponse.ok) {
-      throw new Error("Unable to fetch suggested file groups.");
-    }
-
-    const lookupData = (await lookupResponse.json()) as LookupResponse;
-    const suggestedData = (await groupsResponse.json()) as SuggestedGroupsResponse;
-
-    const nextFileMap = new Map(
-      lookupData.files.map((file) => [file.id, file] as const)
-    );
-
-    setFileMap(nextFileMap);
-    setGroups(suggestedData.groups);
-
-    if (suggestedData.groups.length > 0) {
-      setSelectedGroupIndex(0);
-      const firstFile = suggestedData.groups[0].fileIds[0] ?? null;
-      setSelectedFileId(firstFile);
-    }
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextWorkspaceSlug = workspaceSlug.trim();
-    const validation = parseProviderUrl(prUrl);
+    const nextPrUrl = prUrl.trim();
+    const validation = parseProviderPullRequestUrl(nextPrUrl);
 
     setFormError(null);
     setRequestError(null);
-    setGroupingError(null);
     setResult(null);
-    setGroups([]);
-    setFileMap(new Map());
-    setSelectedFileId(null);
 
     if (!nextWorkspaceSlug) {
       setFormError("Workspace slug is required.");
@@ -242,14 +64,14 @@ export default function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/pull-requests/register-from-provider", {
+      const response = await fetch("/api/pull-requests/register-by-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           workspaceSlug: nextWorkspaceSlug,
-          ...validation.payload,
+          url: nextPrUrl,
         }),
       });
 
@@ -264,18 +86,7 @@ export default function RegisterPage() {
         return;
       }
 
-      const registerData = data as RegisterResponse;
-      setResult(registerData);
-
-      try {
-        await loadGroupsAndFiles(validation.payload, registerData);
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Unable to load grouped viewer details.";
-        setGroupingError(message);
-      }
+      setResult(data as RegisterResponse);
     } catch {
       setRequestError("Request failed. Please try again.");
     } finally {
@@ -283,12 +94,8 @@ export default function RegisterPage() {
     }
   }
 
-  function handleAnnotationChange(fileId: string, value: string) {
-    setAnnotations((prev) => ({ ...prev, [fileId]: value }));
-  }
-
   return (
-    <main style={{ maxWidth: 980, margin: "2rem auto", padding: "0 1rem" }}>
+    <main style={{ maxWidth: 760, margin: "2rem auto", padding: "0 1rem" }}>
       <h1>Register Pull Request From Provider URL</h1>
       <p>Paste a GitHub PR URL or GitLab MR URL to register it in a workspace.</p>
 
@@ -345,146 +152,10 @@ export default function RegisterPage() {
               {result.repository.provider})
             </li>
             <li>
-              PR: #{result.pullRequest.prNumber} — {result.pullRequest.title}
+              PR: #{result.pullRequest.prNumber} - {result.pullRequest.title}
             </li>
             <li>File count: {result.fileCount}</li>
           </ul>
-        </section>
-      ) : null}
-
-      {groupingError ? (
-        <p style={{ color: "crimson", marginTop: "1rem" }}>{groupingError}</p>
-      ) : null}
-
-      {groups.length > 0 ? (
-        <section style={{ marginTop: "1.5rem" }}>
-          <h2>Grouped PR Viewer + Reviewer Notes</h2>
-          <p style={{ marginTop: 0 }}>
-            Files are auto-grouped. Select a group and add non-code reviewer annotations
-            to help walkthroughs.
-          </p>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "260px 1fr",
-              gap: "1rem",
-              alignItems: "start",
-            }}
-          >
-            <aside style={{ border: "1px solid #ddd", borderRadius: 8, padding: "0.75rem" }}>
-              <strong>Auto Groups</strong>
-              <div style={{ display: "grid", gap: "0.5rem", marginTop: "0.75rem" }}>
-                {groups.map((group, index) => (
-                  <button
-                    key={`${group.title}-${index}`}
-                    type="button"
-                    onClick={() => {
-                      setSelectedGroupIndex(index);
-                      setSelectedFileId(group.fileIds[0] ?? null);
-                    }}
-                    style={{
-                      textAlign: "left",
-                      border: "1px solid #ccc",
-                      borderRadius: 6,
-                      padding: "0.5rem",
-                      background: index === selectedGroupIndex ? "#f5f7ff" : "#fff",
-                    }}
-                  >
-                    <div style={{ fontWeight: 600 }}>{group.title}</div>
-                    <div style={{ fontSize: "0.85rem", color: "#444" }}>
-                      {group.fileIds.length} file(s)
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </aside>
-
-            <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: "0.75rem" }}>
-              <strong>{selectedGroup?.title ?? "No group selected"}</strong>
-              {selectedGroup?.description ? (
-                <p style={{ marginTop: "0.4rem" }}>{selectedGroup.description}</p>
-              ) : null}
-
-              {selectedGroup && selectedGroup.fileIds.length > 0 ? (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "0.4rem",
-                      marginTop: "0.6rem",
-                      marginBottom: "0.75rem",
-                    }}
-                  >
-                    {selectedGroup.fileIds.map((fileId) => {
-                      const file = fileMap.get(fileId);
-
-                      return (
-                        <button
-                          key={fileId}
-                          type="button"
-                          onClick={() => setSelectedFileId(fileId)}
-                          style={{
-                            border: "1px solid #bbb",
-                            borderRadius: 999,
-                            background: selectedFileId === fileId ? "#eef3ff" : "#fff",
-                            padding: "0.2rem 0.6rem",
-                          }}
-                        >
-                          {file?.filePath ?? fileId}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {selectedFileId ? (
-                    <div>
-                      <div
-                        style={{
-                          border: "1px solid #333",
-                          borderRadius: 6,
-                          overflow: "hidden",
-                          marginBottom: "0.75rem",
-                        }}
-                      >
-                        <div style={{ background: "#111", color: "#eee", padding: "0.5rem" }}>
-                          {fileMap.get(selectedFileId)?.filePath ?? "Unknown file"}
-                        </div>
-                        <pre
-                          style={{
-                            margin: 0,
-                            padding: "0.75rem",
-                            background: "#1e1e1e",
-                            color: "#e6e6e6",
-                            minHeight: 140,
-                            whiteSpace: "pre-wrap",
-                          }}
-                        >
-{`// Placeholder code view\n// Current API stores PR file metadata but not full patch hunks.\n// Next step: persist provider patch content to render true GitHub-like diff lines.`}
-                        </pre>
-                      </div>
-
-                      <label style={{ display: "grid", gap: "0.25rem" }}>
-                        Reviewer annotation (stored in UI state for now)
-                        <textarea
-                          value={annotations[selectedFileId] ?? ""}
-                          onChange={(event) =>
-                            handleAnnotationChange(selectedFileId, event.target.value)
-                          }
-                          placeholder="Explain what this file is doing and how to review it."
-                          rows={4}
-                          style={{ width: "100%", padding: "0.5rem" }}
-                        />
-                      </label>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <p style={{ marginTop: "0.75rem" }}>No files in selected group.</p>
-              )}
-            </div>
-          </div>
         </section>
       ) : null}
     </main>
