@@ -21,6 +21,8 @@ export const getPatchMapByPrResponseSchema = z.object({
       riskNotes: z.string().nullable().optional(),
       testNotes: z.string().nullable().optional(),
       behaviorChangeNotes: z.string().nullable().optional(),
+      demoable: z.boolean().nullable().optional(),
+      demoNotes: z.string().nullable().optional(),
       generatedMarkdown: z.string().nullable().optional(),
     })
     .nullable(),

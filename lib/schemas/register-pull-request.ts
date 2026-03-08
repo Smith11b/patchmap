@@ -35,6 +35,7 @@ export const pullRequestFileSchema = z.object({
   filePath: z.string().min(1, "File path is required"),
   oldFilePath: z.string().nullable().optional(),
   changeType: fileChangeTypeSchema,
+  patchText: z.string().nullable().optional(),
   fileExtension: z.string().nullable().optional(),
   topLevelDir: z.string().nullable().optional(),
   displayOrder: z.number().int().min(0),

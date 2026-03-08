@@ -1,26 +1,288 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --pm-bg: #eef3f7;
+  --pm-bg-soft: #f7fafc;
+  --pm-surface: #ffffff;
+  --pm-surface-muted: #f3f7fb;
+  --pm-text: #10253f;
+  --pm-text-soft: #4c6179;
+  --pm-border: #d7e1eb;
+  --pm-border-strong: #b6c8d8;
+  --pm-brand-navy: #0d2843;
+  --pm-brand-green: #2c8a3f;
+  --pm-brand-teal: #14979a;
+  --pm-brand-lime: #66aa3d;
+  --pm-danger: #bb2f3a;
+  --pm-success: #1d7f4b;
+  --pm-code-bg: #0b1220;
+  --pm-code-border: #253247;
+  --pm-code-text: #d9e3ee;
+  --pm-code-add-bg: #133524;
+  --pm-code-add: #73d399;
+  --pm-code-del-bg: #4a1f24;
+  --pm-code-del: #f6a7ad;
+  --pm-code-hunk-bg: #142c45;
+  --pm-code-hunk: #8dc6ff;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--pm-bg);
+  --color-foreground: var(--pm-text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  min-height: 100vh;
+  color: var(--pm-text);
+  background:
+    radial-gradient(circle at 12% 16%, rgba(20, 151, 154, 0.12), transparent 34%),
+    radial-gradient(circle at 84% 8%, rgba(102, 170, 61, 0.1), transparent 28%),
+    linear-gradient(180deg, #f7fafc 0%, #edf3f8 100%);
+  font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(13, 40, 67, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(13, 40, 67, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(circle at top, black 40%, transparent 100%);
+}
+
+a {
+  color: inherit;
+}
+
+.pm-shell {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.pm-page-intro {
+  animation: pm-fade-up 300ms ease-out;
+}
+
+.pm-hero-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 2.4vw, 2.5rem);
+  line-height: 1.1;
+  color: var(--pm-brand-navy);
+  letter-spacing: -0.02em;
+}
+
+.pm-hero-subtitle {
+  margin-top: 0.6rem;
+  max-width: 72ch;
+  color: var(--pm-text-soft);
+}
+
+.pm-card {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  border: 1px solid var(--pm-border);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 10px 22px rgba(16, 37, 63, 0.06);
+}
+
+.pm-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.pm-card-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 640;
+  color: var(--pm-brand-navy);
+}
+
+.pm-card-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--pm-text-soft);
+  font-size: 0.95rem;
+}
+
+.pm-input,
+.pm-textarea,
+.pm-select {
+  width: 100%;
+  border: 1px solid var(--pm-border);
+  border-radius: 10px;
+  padding: 0.62rem 0.72rem;
+  background: #fff;
+  color: var(--pm-text);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.pm-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.pm-input:focus,
+.pm-textarea:focus,
+.pm-select:focus {
+  outline: none;
+  border-color: rgba(20, 151, 154, 0.6);
+  box-shadow: 0 0 0 3px rgba(20, 151, 154, 0.18);
+}
+
+.pm-label {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--pm-text-soft);
+  font-size: 0.89rem;
+  font-weight: 550;
+}
+
+.pm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  padding: 0.62rem 0.95rem;
+  font-size: 0.9rem;
+  font-weight: 640;
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.pm-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pm-button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.pm-button-primary {
+  color: #fff;
+  border-color: rgba(12, 86, 86, 0.36);
+  background: linear-gradient(120deg, var(--pm-brand-teal), #0e7f84);
+}
+
+.pm-button-secondary {
+  color: var(--pm-brand-navy);
+  background: #fff;
+  border-color: var(--pm-border-strong);
+}
+
+.pm-button-secondary:hover:not(:disabled),
+.pm-button-primary:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.pm-pill {
+  border-radius: 999px;
+  border: 1px solid var(--pm-border);
+  padding: 0.33rem 0.7rem;
+  font-size: 0.79rem;
+  font-weight: 580;
+  color: var(--pm-text-soft);
+  background: #fff;
+}
+
+.pm-alert {
+  border-radius: 11px;
+  border: 1px solid var(--pm-border);
+  background: var(--pm-surface-muted);
+  color: var(--pm-text-soft);
+  padding: 0.72rem 0.78rem;
+  font-size: 0.9rem;
+}
+
+.pm-alert-error {
+  border-color: rgba(187, 47, 58, 0.33);
+  color: #8a1f2a;
+  background: #fff4f5;
+}
+
+.pm-alert-success {
+  border-color: rgba(29, 127, 75, 0.3);
+  color: #17663d;
+  background: #f1fdf5;
+}
+
+.pm-diff {
+  border: 1px solid var(--pm-code-border);
+  border-radius: 12px;
+  background: var(--pm-code-bg);
+  overflow: hidden;
+}
+
+.pm-diff-header {
+  border-bottom: 1px solid var(--pm-code-border);
+  color: #9fb6cf;
+  background: rgba(37, 50, 71, 0.48);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 580;
+}
+
+.pm-diff-body {
+  margin: 0;
+  padding: 0.75rem;
+  min-height: 170px;
+  overflow-x: auto;
+  color: var(--pm-code-text);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.pm-diff-line {
+  display: block;
+  font-family: var(--font-geist-mono), Consolas, monospace;
+  white-space: pre;
+}
+
+.pm-diff-add {
+  background: var(--pm-code-add-bg);
+  color: var(--pm-code-add);
+}
+
+.pm-diff-del {
+  background: var(--pm-code-del-bg);
+  color: var(--pm-code-del);
+}
+
+.pm-diff-hunk {
+  background: var(--pm-code-hunk-bg);
+  color: var(--pm-code-hunk);
+}
+
+.pm-fade-stagger > * {
+  animation: pm-fade-up 280ms ease-out both;
+}
+
+.pm-fade-stagger > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+
+.pm-fade-stagger > *:nth-child(3) {
+  animation-delay: 95ms;
+}
+
+@keyframes pm-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

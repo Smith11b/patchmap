@@ -61,61 +61,55 @@ function mapGitLabState(
 }
 
 function parseRawDiffFiles(rawDiff: string): ProviderPullRequestFile[] {
-  const lines = rawDiff.split("\n");
+  const blocks = rawDiff
+    .split("diff --git ")
+    .map((part) => part.trimEnd())
+    .filter(Boolean)
+    .map((part) => `diff --git ${part}`);
+
   const files: ProviderPullRequestFile[] = [];
 
-  let currentFile: ProviderPullRequestFile | null = null;
-  let displayOrder = 0;
+  for (const [index, block] of blocks.entries()) {
+    const lines = block.split("\n");
+    const header = lines[0] ?? "";
+    const match = header.match(/^diff --git a\/(.+?) b\/(.+)$/);
 
-  for (const line of lines) {
-    if (line.startsWith("diff --git ")) {
-      if (currentFile) {
-        files.push(currentFile);
-      }
-
-      const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
-      if (!match) {
-        currentFile = null;
-        continue;
-      }
-
-      const oldPath = match[1];
-      const newPath = match[2];
-
-      currentFile = {
-        filePath: newPath,
-        oldFilePath: oldPath === newPath ? null : oldPath,
-        changeType: "modified",
-        fileExtension: getFileExtension(newPath),
-        topLevelDir: getTopLevelDir(newPath),
-        displayOrder: displayOrder++,
-      };
-
+    if (!match) {
       continue;
     }
 
-    if (!currentFile) continue;
+    const oldPath = match[1];
+    let nextFilePath = match[2];
+    let nextOldFilePath: string | null = oldPath === nextFilePath ? null : oldPath;
+    let changeType: ProviderPullRequestFile["changeType"] = "modified";
 
-    if (line.startsWith("new file mode ")) {
-      currentFile.changeType = "added";
-    } else if (line.startsWith("deleted file mode ")) {
-      currentFile.changeType = "deleted";
-    } else if (line.startsWith("rename from ")) {
-      currentFile.changeType = "renamed";
-      currentFile.oldFilePath = line.replace("rename from ", "").trim();
-    } else if (line.startsWith("rename to ")) {
-      currentFile.filePath = line.replace("rename to ", "").trim();
-      currentFile.fileExtension = getFileExtension(currentFile.filePath);
-      currentFile.topLevelDir = getTopLevelDir(currentFile.filePath);
+    for (const line of lines) {
+      if (line.startsWith("new file mode ")) {
+        changeType = "added";
+      } else if (line.startsWith("deleted file mode ")) {
+        changeType = "deleted";
+      } else if (line.startsWith("rename from ")) {
+        changeType = "renamed";
+        nextOldFilePath = line.replace("rename from ", "").trim();
+      } else if (line.startsWith("rename to ")) {
+        nextFilePath = line.replace("rename to ", "").trim();
+      }
     }
-  }
 
-  if (currentFile) {
-    files.push(currentFile);
+    files.push({
+      filePath: nextFilePath,
+      oldFilePath: nextOldFilePath,
+      changeType,
+      patchText: block,
+      fileExtension: getFileExtension(nextFilePath),
+      topLevelDir: getTopLevelDir(nextFilePath),
+      displayOrder: index,
+    });
   }
 
   return files;
 }
+
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, {

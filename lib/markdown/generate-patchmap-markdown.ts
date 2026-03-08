@@ -3,12 +3,19 @@ type PatchMapMarkdownSummary = {
   behaviorChangeNotes?: string | null;
   riskNotes?: string | null;
   testNotes?: string | null;
+  demoable?: boolean | null;
+  demoNotes?: string | null;
 } | null;
+
+type PatchMapMarkdownGroupFile = {
+  path: string;
+  url?: string | null;
+};
 
 type PatchMapMarkdownGroup = {
   title: string;
   description?: string | null;
-  filePaths: string[];
+  files: PatchMapMarkdownGroupFile[];
   orderIndex: number;
 };
 
@@ -26,15 +33,17 @@ function addSection(lines: string[], heading: string, value?: string | null) {
   lines.push("");
 }
 
-function normalizeGroups(
-  groups: PatchMapMarkdownGroup[]
-): PatchMapMarkdownGroup[] {
+function normalizeGroups(groups: PatchMapMarkdownGroup[]): PatchMapMarkdownGroup[] {
   return [...groups].sort((a, b) => a.orderIndex - b.orderIndex);
 }
 
-export function generatePatchMapMarkdown(
-  input: GeneratePatchMapMarkdownInput
-): string {
+function demoableLabel(value: boolean | null | undefined): string | null {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return null;
+}
+
+export function generatePatchMapMarkdown(input: GeneratePatchMapMarkdownInput): string {
   const lines: string[] = [];
 
   lines.push("<!-- PATCHMAP:START -->");
@@ -45,6 +54,15 @@ export function generatePatchMapMarkdown(
   addSection(lines, "Behavior Change", input.summary?.behaviorChangeNotes);
   addSection(lines, "Risk", input.summary?.riskNotes);
   addSection(lines, "Tests", input.summary?.testNotes);
+
+  const demoable = demoableLabel(input.summary?.demoable);
+  if (demoable) {
+    lines.push("### Demoable");
+    lines.push(demoable);
+    lines.push("");
+  }
+
+  addSection(lines, "Demo Notes", input.summary?.demoNotes);
 
   const groups = normalizeGroups(input.groups);
 
@@ -63,10 +81,14 @@ export function generatePatchMapMarkdown(
         lines.push("");
       }
 
-      if (group.filePaths.length > 0) {
+      if (group.files.length > 0) {
         lines.push("**Files**");
-        group.filePaths.forEach((filePath) => {
-          lines.push(`- \`${filePath}\``);
+        group.files.forEach((file) => {
+          if (file.url) {
+            lines.push(`- [\`${file.path}\`](${file.url})`);
+          } else {
+            lines.push(`- \`${file.path}\``);
+          }
         });
         lines.push("");
       }

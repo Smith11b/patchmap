@@ -16,6 +16,8 @@ export const savePatchMapDraftSummarySchema = z.object({
   riskNotes: z.string().nullable().optional(),
   testNotes: z.string().nullable().optional(),
   behaviorChangeNotes: z.string().nullable().optional(),
+  demoable: z.boolean().nullable().optional(),
+  demoNotes: z.string().nullable().optional(),
 });
 
 export const savePatchMapDraftSchema = z.object({
@@ -44,6 +46,8 @@ export const savePatchMapDraftResponseSchema = z.object({
     riskNotes: z.string().nullable().optional(),
     testNotes: z.string().nullable().optional(),
     behaviorChangeNotes: z.string().nullable().optional(),
+    demoable: z.boolean().nullable().optional(),
+    demoNotes: z.string().nullable().optional(),
   }),
   groups: z.array(
     z.object({

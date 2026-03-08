@@ -73,6 +73,8 @@ type PatchMapResponse = {
     riskNotes?: string | null;
     testNotes?: string | null;
     behaviorChangeNotes?: string | null;
+    demoable?: boolean | null;
+    demoNotes?: string | null;
     generatedMarkdown?: string | null;
   } | null;
   groups: Array<{
@@ -99,6 +101,8 @@ type SaveDraftResponse = {
     riskNotes?: string | null;
     testNotes?: string | null;
     behaviorChangeNotes?: string | null;
+    demoable?: boolean | null;
+    demoNotes?: string | null;
   };
   groups: Array<{
     id: string;
@@ -180,6 +184,10 @@ export default function TestPage() {
   );
   const [testNotes, setTestNotes] = useState(
     "Added repository and service unit tests."
+  );
+  const [demoable, setDemoable] = useState<"" | "yes" | "no">("yes");
+  const [demoNotes, setDemoNotes] = useState(
+    "Demo from PR description: run through grouped walkthrough and key API behavior changes."
   );
 
   const [groups, setGroups] = useState<DraftGroup[]>([
@@ -369,6 +377,14 @@ export default function TestPage() {
         setBehaviorChangeNotes(patchmap.summary.behaviorChangeNotes ?? "");
         setRiskNotes(patchmap.summary.riskNotes ?? "");
         setTestNotes(patchmap.summary.testNotes ?? "");
+        setDemoable(
+          patchmap.summary.demoable === true
+            ? "yes"
+            : patchmap.summary.demoable === false
+              ? "no"
+              : ""
+        );
+        setDemoNotes(patchmap.summary.demoNotes ?? "");
         setGeneratedMarkdown(patchmap.summary.generatedMarkdown ?? "");
       }
 
@@ -420,6 +436,8 @@ export default function TestPage() {
             riskNotes: riskNotes || null,
             testNotes: testNotes || null,
             behaviorChangeNotes: behaviorChangeNotes || null,
+            demoable: demoable === "yes" ? true : demoable === "no" ? false : null,
+            demoNotes: demoNotes || null,
           },
           groups: groups.map((group, index) => ({
             title: group.title,
@@ -687,6 +705,26 @@ export default function TestPage() {
                 onChange={(e) => setTestNotes(e.target.value)}
               />
             </Field>
+
+            <Field label="Demoable" id="demoable">
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                value={demoable}
+                onChange={(e) => setDemoable(e.target.value as "" | "yes" | "no")}
+              >
+                <option value="">not set</option>
+                <option value="yes">yes</option>
+                <option value="no">no</option>
+              </select>
+            </Field>
+
+            <Field label="Demo Notes" id="demoNotes">
+              <textarea
+                className="min-h-[90px] w-full rounded-lg border px-3 py-2"
+                value={demoNotes}
+                onChange={(e) => setDemoNotes(e.target.value)}
+              />
+            </Field>
           </div>
 
           <div className="space-y-4">
@@ -842,3 +880,4 @@ function Field({
     </div>
   );
 }
+

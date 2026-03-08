@@ -43,6 +43,8 @@ export async function getPatchMapByPr(
       risk_notes,
       test_notes,
       behavior_change_notes,
+      demoable,
+      demo_notes,
       generated_markdown
     `)
     .eq("patchmap_id", patchmapId)
@@ -114,6 +116,8 @@ export async function getPatchMapByPr(
           riskNotes: summaryRow.risk_notes,
           testNotes: summaryRow.test_notes,
           behaviorChangeNotes: summaryRow.behavior_change_notes,
+          demoable: summaryRow.demoable,
+          demoNotes: summaryRow.demo_notes,
           generatedMarkdown: summaryRow.generated_markdown,
         }
       : null,

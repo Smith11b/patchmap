@@ -468,6 +468,9 @@ function getProviderDisplayName(provider) {
         ${summary.behaviorChangeNotes ? `<div><strong>Behavior Change</strong><p>${escapeHtml(summary.behaviorChangeNotes)}</p></div>` : ""}
         ${summary.riskNotes ? `<div><strong>Risk</strong><p>${escapeHtml(summary.riskNotes)}</p></div>` : ""}
         ${summary.testNotes ? `<div><strong>Tests</strong><p>${escapeHtml(summary.testNotes)}</p></div>` : ""}
+        ${summary.demoable === true ? `<div><strong>Demoable</strong><p>Yes</p></div>` : ""}
+        ${summary.demoable === false ? `<div><strong>Demoable</strong><p>No</p></div>` : ""}
+        ${summary.demoNotes ? `<div><strong>Demo Notes</strong><p>${escapeHtml(summary.demoNotes)}</p></div>` : ""}
       </div>
 
       <div class="patchmap-section">
@@ -663,6 +666,22 @@ if (prInfo.provider !== "github") {
           summary.testNotes || ""
         )}</textarea>
       </div>
+
+      <div class="patchmap-section">
+        <label class="patchmap-field-label" for="patchmap-demoable">Demoable</label>
+        <select id="patchmap-demoable" class="patchmap-textarea">
+          <option value="">Not set</option>
+          <option value="yes" ${summary.demoable === true ? "selected" : ""}>Yes</option>
+          <option value="no" ${summary.demoable === false ? "selected" : ""}>No</option>
+        </select>
+      </div>
+
+      <div class="patchmap-section">
+        <label class="patchmap-field-label" for="patchmap-demo-notes">Demo Notes</label>
+        <textarea id="patchmap-demo-notes" class="patchmap-textarea">${escapeHtml(
+          summary.demoNotes || ""
+        )}</textarea>
+      </div>
     `);
 
     document
@@ -689,6 +708,14 @@ if (prInfo.provider !== "github") {
         document.getElementById("patchmap-behavior-change")?.value ?? "";
       const riskNotes = document.getElementById("patchmap-risk")?.value ?? "";
       const testNotes = document.getElementById("patchmap-tests")?.value ?? "";
+      const demoableSelection = document.getElementById("patchmap-demoable")?.value ?? "";
+      const demoNotes = document.getElementById("patchmap-demo-notes")?.value ?? "";
+      const demoable =
+        demoableSelection === "yes"
+          ? true
+          : demoableSelection === "no"
+            ? false
+            : null;
 
       const response = await extensionFetch(
         "http://localhost:3000/api/patchmaps/save-draft",
@@ -709,6 +736,8 @@ if (prInfo.provider !== "github") {
               riskNotes: riskNotes || null,
               testNotes: testNotes || null,
               behaviorChangeNotes: behaviorChangeNotes || null,
+              demoable,
+              demoNotes: demoNotes || null,
             },
             groups: (currentPatchMapData.groups || []).map((group, index) => ({
               title: group.title,
@@ -836,6 +865,8 @@ if (prInfo.provider !== "github") {
               testNotes: currentPatchMapData.summary?.testNotes ?? null,
               behaviorChangeNotes:
                 currentPatchMapData.summary?.behaviorChangeNotes ?? null,
+              demoable: currentPatchMapData.summary?.demoable ?? null,
+              demoNotes: currentPatchMapData.summary?.demoNotes ?? null,
             },
             groups: suggested.groups.map((group, index) => ({
               title: group.title,
@@ -886,6 +917,8 @@ if (prInfo.provider !== "github") {
               riskNotes: null,
               testNotes: null,
               behaviorChangeNotes: null,
+              demoable: null,
+              demoNotes: null,
             },
             groups: [],
           }),
@@ -1024,3 +1057,4 @@ if (prInfo.provider !== "github") {
 
   init();
 })();
+

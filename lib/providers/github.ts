@@ -20,6 +20,7 @@ type GitHubPullRequestFileResponse = {
   filename: string;
   previous_filename?: string;
   status: "added" | "modified" | "removed" | "renamed" | "copied" | "changed" | string;
+  patch?: string;
 };
 
 function getGitHubHeaders(): HeadersInit {
@@ -139,6 +140,7 @@ export async function getGitHubPullRequestData(params: {
       filePath: file.filename,
       oldFilePath: file.previous_filename ?? null,
       changeType: mapGitHubFileStatus(file.status),
+      patchText: file.patch ?? null,
       fileExtension: getFileExtension(file.filename),
       topLevelDir: getTopLevelDir(file.filename),
       displayOrder: index,

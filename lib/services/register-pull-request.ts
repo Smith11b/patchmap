@@ -113,6 +113,7 @@ export async function registerPullRequest(
       file_path: file.filePath,
       old_file_path: file.oldFilePath ?? null,
       change_type: file.changeType,
+      patch_text: file.patchText ?? null,
       file_extension:
         file.fileExtension ?? getFileExtension(file.filePath),
       top_level_dir: file.topLevelDir ?? getTopLevelDir(file.filePath),

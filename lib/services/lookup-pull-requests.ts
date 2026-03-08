@@ -61,6 +61,7 @@ export async function lookupPullRequest(
       file_path,
       old_file_path,
       change_type,
+      patch_text,
       file_extension,
       top_level_dir,
       display_order
@@ -108,6 +109,7 @@ export async function lookupPullRequest(
       filePath: file.file_path,
       oldFilePath: file.old_file_path,
       changeType: file.change_type,
+      patchText: file.patch_text,
       fileExtension: file.file_extension,
       topLevelDir: file.top_level_dir,
       displayOrder: file.display_order,

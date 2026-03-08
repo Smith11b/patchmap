@@ -12,7 +12,6 @@ export async function savePatchMapDraft(
   const status = input.patchmap?.status ?? "draft";
   const requestedVersionNumber = input.patchmap?.versionNumber ?? 1;
 
-  // 1. Ensure PR exists
   const { data: pullRequest, error: pullRequestError } = await supabase
     .from("pull_requests")
     .select("id")
@@ -23,7 +22,6 @@ export async function savePatchMapDraft(
     throw new Error("Pull request not found");
   }
 
-  // 2. Find existing patchmap by id if provided, otherwise use PR + version
   let existingPatchmapId: string | null = input.patchmap?.id ?? null;
 
   if (!existingPatchmapId) {
@@ -37,7 +35,6 @@ export async function savePatchMapDraft(
     existingPatchmapId = existingPatchmap?.id ?? null;
   }
 
-  // 3. Upsert patchmap
   let patchmapRow:
     | {
         id: string;
@@ -86,7 +83,6 @@ export async function savePatchMapDraft(
 
   const patchmapId = patchmapRow.id;
 
-  // 4. Load existing groups so we can remove old file mappings first
   const { data: existingGroups, error: existingGroupsError } = await supabase
     .from("patchmap_groups")
     .select("id")
@@ -124,7 +120,6 @@ export async function savePatchMapDraft(
     );
   }
 
-  // 5. Upsert summary
   const { data: summaryRow, error: summaryError } = await supabase
     .from("patchmap_summaries")
     .upsert(
@@ -134,12 +129,16 @@ export async function savePatchMapDraft(
         risk_notes: input.summary.riskNotes ?? null,
         test_notes: input.summary.testNotes ?? null,
         behavior_change_notes: input.summary.behaviorChangeNotes ?? null,
+        demoable: input.summary.demoable ?? null,
+        demo_notes: input.summary.demoNotes ?? null,
       },
       {
         onConflict: "patchmap_id",
       }
     )
-    .select("id, purpose, risk_notes, test_notes, behavior_change_notes")
+    .select(
+      "id, purpose, risk_notes, test_notes, behavior_change_notes, demoable, demo_notes"
+    )
     .single();
 
   if (summaryError || !summaryRow) {
@@ -148,7 +147,6 @@ export async function savePatchMapDraft(
     );
   }
 
-  // 6. Create groups one-by-one so we can capture IDs
   const savedGroups: SavePatchMapDraftResponse["groups"] = [];
 
   for (const group of input.groups) {
@@ -213,6 +211,8 @@ export async function savePatchMapDraft(
       riskNotes: summaryRow.risk_notes,
       testNotes: summaryRow.test_notes,
       behaviorChangeNotes: summaryRow.behavior_change_notes,
+      demoable: summaryRow.demoable,
+      demoNotes: summaryRow.demo_notes,
     },
     groups: savedGroups,
   };

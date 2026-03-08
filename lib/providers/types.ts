@@ -4,6 +4,7 @@ export type ProviderPullRequestFile = {
   filePath: string;
   oldFilePath?: string | null;
   changeType: "added" | "modified" | "deleted" | "renamed";
+  patchText?: string | null;
   fileExtension?: string | null;
   topLevelDir?: string | null;
   displayOrder: number;
