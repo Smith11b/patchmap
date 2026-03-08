@@ -3,20 +3,37 @@ import {
   getGitLabPullRequestData,
   splitGitLabProjectPath,
 } from "@/lib/providers/gitlab";
-import { registerPullRequest } from "@/lib/services/register-pull-request";
 import { RegisterFromProviderRequest } from "@/lib/schemas/register-from-provider";
+import { getUserProviderToken } from "@/lib/services/user-provider-credentials";
+import { registerPullRequest } from "@/lib/services/register-pull-request";
 
-export async function registerFromProvider(input: RegisterFromProviderRequest) {
+function allowProviderTokenFallback(): boolean {
+  return process.env.ALLOW_PROVIDER_TOKEN_FALLBACK === "true";
+}
+
+export async function registerFromProvider(params: {
+  input: RegisterFromProviderRequest;
+  userId: string;
+}) {
+  const { input, userId } = params;
+
   switch (input.provider) {
     case "github": {
+      const userToken = await getUserProviderToken({ userId, provider: "github" });
+
+      if (!userToken && !allowProviderTokenFallback()) {
+        throw new Error("Missing GitHub credential. Add a token in profile settings.");
+      }
+
       const providerData = await getGitHubPullRequestData({
         owner: input.owner,
         repo: input.name,
         prNumber: input.prNumber,
+        token: userToken,
       });
 
       return registerPullRequest({
-        workspaceSlug: input.workspaceSlug,
+        workspaceId: input.workspaceId,
         repository: {
           provider: "github",
           owner: input.owner,
@@ -40,9 +57,16 @@ export async function registerFromProvider(input: RegisterFromProviderRequest) {
     }
 
     case "gitlab": {
+      const userToken = await getUserProviderToken({ userId, provider: "gitlab" });
+
+      if (!userToken && !allowProviderTokenFallback()) {
+        throw new Error("Missing GitLab credential. Add a token in profile settings.");
+      }
+
       const providerData = await getGitLabPullRequestData({
         projectPath: input.projectPath,
         prNumber: input.prNumber,
+        token: userToken,
       });
 
       const projectParts = splitGitLabProjectPath(input.projectPath);
@@ -53,7 +77,7 @@ export async function registerFromProvider(input: RegisterFromProviderRequest) {
       }
 
       return registerPullRequest({
-        workspaceSlug: input.workspaceSlug,
+        workspaceId: input.workspaceId,
         repository: {
           provider: "gitlab",
           owner: projectParts.owner,
@@ -77,6 +101,7 @@ export async function registerFromProvider(input: RegisterFromProviderRequest) {
     }
 
     default:
-      throw new Error(`Provider not supported yet`);
+      throw new Error("Provider not supported yet");
   }
 }
+

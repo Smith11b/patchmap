@@ -2,12 +2,12 @@ import {
   GetPatchMapByPrQuery,
   GetPatchMapByPrResponse,
 } from "@/lib/schemas/get-patchmap-by-pr";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export async function getPatchMapByPr(
   input: GetPatchMapByPrQuery
 ): Promise<GetPatchMapByPrResponse | null> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
   const { data: patchmapRow, error: patchmapError } = await supabase
     .from("patchmaps")
@@ -124,3 +124,5 @@ export async function getPatchMapByPr(
     groups,
   };
 }
+
+

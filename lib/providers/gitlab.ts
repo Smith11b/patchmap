@@ -14,8 +14,8 @@ type GitLabMergeRequestResponse = {
   } | null;
 };
 
-function getGitLabBaseUrl(): string {
-  const baseUrl = process.env.GITLAB_BASE_URL;
+function getGitLabBaseUrl(explicitBaseUrl?: string | null): string {
+  const baseUrl = explicitBaseUrl ?? process.env.GITLAB_BASE_URL;
   if (!baseUrl) {
     throw new Error("Missing GITLAB_BASE_URL");
   }
@@ -23,14 +23,14 @@ function getGitLabBaseUrl(): string {
   return baseUrl.replace(/\/+$/, "");
 }
 
-function getGitLabHeaders(): HeadersInit {
-  const token = process.env.GITLAB_TOKEN;
-  if (!token) {
+function getGitLabHeaders(token?: string | null): HeadersInit {
+  const authToken = token ?? process.env.GITLAB_TOKEN;
+  if (!authToken) {
     throw new Error("Missing GITLAB_TOKEN");
   }
 
   return {
-    "PRIVATE-TOKEN": token,
+    "PRIVATE-TOKEN": authToken,
     Accept: "application/json",
   };
 }
@@ -111,9 +111,9 @@ function parseRawDiffFiles(rawDiff: string): ProviderPullRequestFile[] {
 }
 
 
-async function fetchJson<T>(url: string): Promise<T> {
+async function fetchJson<T>(url: string, token?: string | null): Promise<T> {
   const response = await fetch(url, {
-    headers: getGitLabHeaders(),
+    headers: getGitLabHeaders(token),
     cache: "no-store",
   });
 
@@ -125,9 +125,9 @@ async function fetchJson<T>(url: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function fetchText(url: string): Promise<string> {
+async function fetchText(url: string, token?: string | null): Promise<string> {
   const response = await fetch(url, {
-    headers: getGitLabHeaders(),
+    headers: getGitLabHeaders(token),
     cache: "no-store",
   });
 
@@ -160,16 +160,18 @@ export function splitGitLabProjectPath(projectPath: string): {
 export async function getGitLabPullRequestData(params: {
   projectPath: string;
   prNumber: number;
+  token?: string | null;
+  baseUrl?: string | null;
 }): Promise<ProviderPullRequestData> {
-  const baseUrl = getGitLabBaseUrl();
+  const baseUrl = getGitLabBaseUrl(params.baseUrl);
   const projectId = encodeURIComponent(params.projectPath);
 
   const mergeRequestUrl = `${baseUrl}/api/v4/projects/${projectId}/merge_requests/${params.prNumber}`;
   const rawDiffsUrl = `${baseUrl}/api/v4/projects/${projectId}/merge_requests/${params.prNumber}/raw_diffs`;
 
   const [mergeRequest, rawDiff] = await Promise.all([
-    fetchJson<GitLabMergeRequestResponse>(mergeRequestUrl),
-    fetchText(rawDiffsUrl),
+    fetchJson<GitLabMergeRequestResponse>(mergeRequestUrl, params.token),
+    fetchText(rawDiffsUrl, params.token),
   ]);
 
   const files = parseRawDiffFiles(rawDiff);

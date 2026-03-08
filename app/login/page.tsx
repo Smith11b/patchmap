@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BrandLockup } from "@/app/components/brand-lockup";
 import { supabase } from "@/lib/supabase";
 
 export default function Login() {
@@ -16,7 +15,12 @@ export default function Login() {
     setStatus(null);
     setError(null);
 
-    const { error: signInError } = await supabase.auth.signInWithOtp({ email });
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth/callback?next=/register` : undefined;
+
+    const { error: signInError } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: redirectTo },
+    });
 
     if (signInError) {
       setError(signInError.message);
@@ -32,8 +36,8 @@ export default function Login() {
       <section className="pm-page-intro pm-card mx-auto max-w-xl p-6 md:p-8">
         <div className="pm-card-header">
           <div>
-            <BrandLockup subtitle="Secure workspace authentication" />
-            <h1 className="pm-hero-title mt-4 text-[2rem]">PatchMap Login</h1>
+            <div className="pm-context-kicker">Secure workspace authentication</div>
+            <h1 className="pm-hero-title mt-2 text-[2rem]">PatchMap Login</h1>
             <p className="pm-hero-subtitle">
               Authenticate with your workspace email to access PR registrations and review drafts.
             </p>
@@ -73,3 +77,6 @@ export default function Login() {
     </main>
   );
 }
+
+
+

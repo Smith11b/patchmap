@@ -23,16 +23,17 @@ type GitHubPullRequestFileResponse = {
   patch?: string;
 };
 
-function getGitHubHeaders(): HeadersInit {
-  const token = process.env.GITHUB_TOKEN;
+function getGitHubHeaders(token?: string | null): HeadersInit {
+  const fallbackToken = process.env.GITHUB_TOKEN;
+  const authToken = token ?? fallbackToken;
 
   const headers: HeadersInit = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
   }
 
   return headers;
@@ -63,9 +64,9 @@ function mapGitHubFileStatus(
   }
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
+async function fetchJson<T>(url: string, token?: string | null): Promise<T> {
   const response = await fetch(url, {
-    headers: getGitHubHeaders(),
+    headers: getGitHubHeaders(token),
     cache: "no-store",
   });
 
@@ -80,23 +81,25 @@ async function fetchJson<T>(url: string): Promise<T> {
 async function fetchPullRequest(
   owner: string,
   repo: string,
-  prNumber: number
+  prNumber: number,
+  token?: string | null
 ): Promise<GitHubPullRequestResponse> {
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
-  return fetchJson<GitHubPullRequestResponse>(url);
+  return fetchJson<GitHubPullRequestResponse>(url, token);
 }
 
 async function fetchPullRequestFiles(
   owner: string,
   repo: string,
-  prNumber: number
+  prNumber: number,
+  token?: string | null
 ): Promise<GitHubPullRequestFileResponse[]> {
   const allFiles: GitHubPullRequestFileResponse[] = [];
   let page = 1;
 
   while (true) {
     const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/files?per_page=100&page=${page}`;
-    const pageFiles = await fetchJson<GitHubPullRequestFileResponse[]>(url);
+    const pageFiles = await fetchJson<GitHubPullRequestFileResponse[]>(url, token);
 
     allFiles.push(...pageFiles);
 
@@ -114,10 +117,11 @@ export async function getGitHubPullRequestData(params: {
   owner: string;
   repo: string;
   prNumber: number;
+  token?: string | null;
 }): Promise<ProviderPullRequestData> {
   const [pullRequest, files] = await Promise.all([
-    fetchPullRequest(params.owner, params.repo, params.prNumber),
-    fetchPullRequestFiles(params.owner, params.repo, params.prNumber),
+    fetchPullRequest(params.owner, params.repo, params.prNumber, params.token),
+    fetchPullRequestFiles(params.owner, params.repo, params.prNumber, params.token),
   ]);
 
   return {

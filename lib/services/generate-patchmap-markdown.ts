@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { generatePatchMapMarkdown } from "@/lib/markdown/generate-patchmap-markdown";
 
 type PullRequestForMarkdown = {
@@ -37,7 +37,7 @@ function buildProviderFileUrl(pullRequest: PullRequestForMarkdown, filePath: str
 export async function generateAndStorePatchMapMarkdown(
   patchmapId: string
 ): Promise<string> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
   const { data: patchmapRow, error: patchmapError } = await supabase
     .from("patchmaps")
@@ -174,3 +174,5 @@ export async function generateAndStorePatchMapMarkdown(
 
   return markdown;
 }
+
+

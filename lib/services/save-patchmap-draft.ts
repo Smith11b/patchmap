@@ -2,12 +2,12 @@ import {
   SavePatchMapDraftRequest,
   SavePatchMapDraftResponse,
 } from "@/lib/schemas/save-patchmap-draft";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export async function savePatchMapDraft(
   input: SavePatchMapDraftRequest
 ): Promise<SavePatchMapDraftResponse> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
   const status = input.patchmap?.status ?? "draft";
   const requestedVersionNumber = input.patchmap?.versionNumber ?? 1;
@@ -217,3 +217,5 @@ export async function savePatchMapDraft(
     groups: savedGroups,
   };
 }
+
+

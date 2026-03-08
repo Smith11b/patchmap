@@ -1,12 +1,40 @@
 import { z } from "zod";
 import { providerSchema, pullRequestStateSchema } from "@/lib/schemas/register-pull-request";
 
-export const lookupPullRequestQuerySchema = z.object({
-  provider: providerSchema,
-  owner: z.string().min(1, "Repository owner is required"),
-  name: z.string().min(1, "Repository name is required"),
-  prNumber: z.coerce.number().int().positive("PR number must be a positive integer"),
-});
+const optionalPositiveInt = z.preprocess(
+  (value) => (value === null || value === undefined || value === "" ? undefined : value),
+  z.coerce.number().int().positive("PR number must be a positive integer").optional()
+);
+
+export const lookupPullRequestQuerySchema = z
+  .object({
+    workspaceId: z.string().uuid("Workspace id must be a valid UUID").optional(),
+    provider: providerSchema.optional(),
+    owner: z.string().min(1, "Repository owner is required").optional(),
+    name: z.string().min(1, "Repository name is required").optional(),
+    prNumber: optionalPositiveInt,
+    pullRequestId: z.string().uuid("Pull request id must be a valid UUID").optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.pullRequestId) {
+      return;
+    }
+
+    const missing: string[] = [];
+    if (!value.workspaceId) missing.push("workspaceId");
+    if (!value.provider) missing.push("provider");
+    if (!value.owner) missing.push("owner");
+    if (!value.name) missing.push("name");
+    if (!value.prNumber) missing.push("prNumber");
+
+    if (missing.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Missing required query fields: ${missing.join(", ")}`,
+        path: [],
+      });
+    }
+  });
 
 export const lookupPullRequestResponseSchema = z.object({
   workspace: z.object({

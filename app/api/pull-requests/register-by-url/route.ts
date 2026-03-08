@@ -1,23 +1,41 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
+import { requireApiUser } from "@/lib/auth/require-api-user";
+import { assertWorkspaceMembership } from "@/lib/workspaces/access";
 import { parseProviderPullRequestUrl } from "@/lib/providers/parse-provider-pull-request-url";
-import { registerByUrlSchema } from "@/lib/schemas/register-by-url";
 import { registerFromProvider } from "@/lib/services/register-from-provider";
+
+const registerByUrlSchema = z.object({
+  workspaceId: z.string().uuid(),
+  url: z.url(),
+});
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireApiUser();
+    if ("response" in auth) {
+      return auth.response;
+    }
+
     const json = await request.json();
     const parsed = registerByUrlSchema.parse(json);
 
-    const parseResult = parseProviderPullRequestUrl(parsed.url);
+    const membership = await assertWorkspaceMembership(auth.user.id, parsed.workspaceId);
+    if (!membership) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
+    const parseResult = parseProviderPullRequestUrl(parsed.url);
     if ("error" in parseResult) {
       return NextResponse.json({ error: parseResult.error }, { status: 400 });
     }
 
     const result = await registerFromProvider({
-      workspaceSlug: parsed.workspaceSlug,
-      ...parseResult.payload,
+      input: {
+        ...parseResult.payload,
+        workspaceId: parsed.workspaceId,
+      },
+      userId: auth.user.id,
     });
 
     return NextResponse.json(result, { status: 200 });
@@ -32,9 +50,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
-
+    const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -2,7 +2,7 @@ import {
   RegisterPullRequestRequest,
   RegisterPullRequestResponse,
 } from "@/lib/schemas/register-pull-request";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 function getFileExtension(filePath: string): string | null {
   const lastSegment = filePath.split("/").pop();
@@ -21,22 +21,20 @@ function getTopLevelDir(filePath: string): string | null {
 export async function registerPullRequest(
   input: RegisterPullRequestRequest
 ): Promise<RegisterPullRequestResponse> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
-  const { workspaceSlug, repository, pullRequest, files } = input;
+  const { workspaceId, repository, pullRequest, files } = input;
 
-  // 1. Find workspace
   const { data: workspace, error: workspaceError } = await supabase
     .from("workspaces")
     .select("id, slug, name")
-    .eq("slug", workspaceSlug)
+    .eq("id", workspaceId)
     .single();
 
   if (workspaceError || !workspace) {
-    throw new Error(`Workspace not found for slug: ${workspaceSlug}`);
+    throw new Error(`Workspace not found: ${workspaceId}`);
   }
 
-  // 2. Upsert repository
   const { data: repositoryRows, error: repositoryError } = await supabase
     .from("repositories")
     .upsert(
@@ -49,7 +47,7 @@ export async function registerPullRequest(
         external_repo_id: repository.externalRepoId ?? null,
       },
       {
-        onConflict: "provider,owner,name",
+        onConflict: "workspace_id,provider,owner,name",
       }
     )
     .select("id, provider, owner, name")
@@ -63,7 +61,6 @@ export async function registerPullRequest(
 
   const repo = repositoryRows;
 
-  // 3. Upsert pull request
   const { data: pullRequestRow, error: pullRequestError } = await supabase
     .from("pull_requests")
     .upsert(
@@ -95,16 +92,13 @@ export async function registerPullRequest(
 
   const pr = pullRequestRow;
 
-  // 4. Replace PR files
   const { error: deleteFilesError } = await supabase
     .from("pr_files")
     .delete()
     .eq("pull_request_id", pr.id);
 
   if (deleteFilesError) {
-    throw new Error(
-      `Failed to clear PR files: ${deleteFilesError.message}`
-    );
+    throw new Error(`Failed to clear PR files: ${deleteFilesError.message}`);
   }
 
   if (files.length > 0) {
@@ -114,8 +108,7 @@ export async function registerPullRequest(
       old_file_path: file.oldFilePath ?? null,
       change_type: file.changeType,
       patch_text: file.patchText ?? null,
-      file_extension:
-        file.fileExtension ?? getFileExtension(file.filePath),
+      file_extension: file.fileExtension ?? getFileExtension(file.filePath),
       top_level_dir: file.topLevelDir ?? getTopLevelDir(file.filePath),
       display_order: file.displayOrder,
     }));
@@ -125,9 +118,7 @@ export async function registerPullRequest(
       .insert(fileRows);
 
     if (insertFilesError) {
-      throw new Error(
-        `Failed to insert PR files: ${insertFilesError.message}`
-      );
+      throw new Error(`Failed to insert PR files: ${insertFilesError.message}`);
     }
   }
 

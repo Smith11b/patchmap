@@ -42,7 +42,7 @@ export const pullRequestFileSchema = z.object({
 });
 
 export const registerPullRequestSchema = z.object({
-  workspaceSlug: z.string().min(1, "Workspace slug is required"),
+  workspaceId: z.string().uuid("Workspace id must be a valid UUID"),
   repository: repositorySchema,
   pullRequest: pullRequestSchema,
   files: z.array(pullRequestFileSchema),

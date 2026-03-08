@@ -1,0 +1,624 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+
+type SuggestedGroup = {
+  title: string;
+  description?: string;
+  orderIndex: number;
+  fileIds: string[];
+};
+
+type SuggestedGroupsResponse = {
+  pullRequestId: string;
+  groups: SuggestedGroup[];
+};
+
+type LookupResponse = {
+  files: Array<{
+    id: string;
+    filePath: string;
+    oldFilePath?: string | null;
+    changeType: "added" | "modified" | "deleted" | "renamed";
+    patchText?: string | null;
+    displayOrder: number;
+  }>;
+};
+
+type PatchMapResponse = {
+  patchmap: {
+    id: string;
+    pullRequestId: string;
+    versionNumber: number;
+    status: "draft" | "published";
+    createdAt: string;
+    updatedAt: string;
+  };
+  summary: {
+    id: string;
+    purpose?: string | null;
+    riskNotes?: string | null;
+    testNotes?: string | null;
+    behaviorChangeNotes?: string | null;
+    demoable?: boolean | null;
+    demoNotes?: string | null;
+    generatedMarkdown?: string | null;
+  } | null;
+  groups: Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    orderIndex: number;
+    fileIds: string[];
+  }>;
+};
+
+type SaveDraftResponse = {
+  patchmap: {
+    id: string;
+    pullRequestId: string;
+    versionNumber: number;
+    status: "draft" | "published";
+  };
+  summary: {
+    id: string;
+    purpose?: string | null;
+    riskNotes?: string | null;
+    testNotes?: string | null;
+    behaviorChangeNotes?: string | null;
+    demoable?: boolean | null;
+    demoNotes?: string | null;
+  };
+  groups: Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    orderIndex: number;
+    fileIds: string[];
+  }>;
+};
+
+type GenerateMarkdownResponse = {
+  patchmapId: string;
+  markdown: string;
+};
+
+function diffLineClass(line: string): string {
+  if (line.startsWith("+")) return "pm-diff-line pm-diff-add";
+  if (line.startsWith("-")) return "pm-diff-line pm-diff-del";
+  if (line.startsWith("@@")) return "pm-diff-line pm-diff-hunk";
+  return "pm-diff-line";
+}
+
+function demoableToValue(demoable?: boolean | null): "" | "yes" | "no" {
+  if (demoable === true) return "yes";
+  if (demoable === false) return "no";
+  return "";
+}
+
+export default function PatchMapPage() {
+  const params = useParams<{ pullRequestId: string }>();
+  const pullRequestId = params.pullRequestId ?? "";
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [groupingError, setGroupingError] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  const [groups, setGroups] = useState<SuggestedGroup[]>([]);
+  const [fileMap, setFileMap] = useState<Map<string, LookupResponse["files"][number]>>(
+    new Map()
+  );
+  const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [annotations, setAnnotations] = useState<Record<string, string>>({});
+
+  const [patchmapId, setPatchmapId] = useState<string | null>(null);
+  const [patchmapStatus, setPatchmapStatus] = useState<"draft" | "published">("draft");
+  const [patchmapVersion, setPatchmapVersion] = useState(1);
+
+  const [purpose, setPurpose] = useState("");
+  const [behaviorChangeNotes, setBehaviorChangeNotes] = useState("");
+  const [riskNotes, setRiskNotes] = useState("");
+  const [testNotes, setTestNotes] = useState("");
+  const [demoable, setDemoable] = useState<"" | "yes" | "no">("");
+  const [demoNotes, setDemoNotes] = useState("");
+  const [generatedMarkdown, setGeneratedMarkdown] = useState("");
+
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isGeneratingMarkdown, setIsGeneratingMarkdown] = useState(false);
+
+  const loadGroupsAndFiles = useCallback(async () => {
+    const [lookupResponse, groupsResponse] = await Promise.all([
+      fetch(`/api/pull-requests/lookup?pullRequestId=${pullRequestId}`),
+      fetch(`/api/patchmaps/suggest-groups?pullRequestId=${pullRequestId}`),
+    ]);
+
+    if (!lookupResponse.ok) {
+      throw new Error("Unable to fetch PR files for viewer.");
+    }
+
+    if (!groupsResponse.ok) {
+      setGroupingError("Unable to fetch suggested file groups.");
+      return;
+    }
+
+    const lookupData = (await lookupResponse.json()) as LookupResponse;
+    const suggestedData = (await groupsResponse.json()) as SuggestedGroupsResponse;
+
+    const nextFileMap = new Map(lookupData.files.map((file) => [file.id, file] as const));
+    setFileMap(nextFileMap);
+    setGroups(suggestedData.groups);
+
+    if (suggestedData.groups.length > 0) {
+      setSelectedGroupIndex(0);
+      setSelectedFileId(suggestedData.groups[0].fileIds[0] ?? null);
+    }
+  }, [pullRequestId]);
+
+  const loadPatchMapForPullRequest = useCallback(async () => {
+    const response = await fetch(`/api/patchmaps/by-pr?pullRequestId=${pullRequestId}`);
+
+    if (response.status === 404) {
+      setPatchmapId(null);
+      setPatchmapStatus("draft");
+      setPatchmapVersion(1);
+      setGeneratedMarkdown("");
+      return;
+    }
+
+    const data = (await response.json()) as PatchMapResponse | { error: string };
+
+    if (!response.ok) {
+      setDraftError("error" in data ? data.error : "Unable to load patchmap");
+      return;
+    }
+
+    const patchmap = data as PatchMapResponse;
+
+    setPatchmapId(patchmap.patchmap.id);
+    setPatchmapStatus(patchmap.patchmap.status);
+    setPatchmapVersion(patchmap.patchmap.versionNumber);
+
+    if (patchmap.summary) {
+      setPurpose(patchmap.summary.purpose ?? "");
+      setBehaviorChangeNotes(patchmap.summary.behaviorChangeNotes ?? "");
+      setRiskNotes(patchmap.summary.riskNotes ?? "");
+      setTestNotes(patchmap.summary.testNotes ?? "");
+      setDemoable(demoableToValue(patchmap.summary.demoable));
+      setDemoNotes(patchmap.summary.demoNotes ?? "");
+      setGeneratedMarkdown(patchmap.summary.generatedMarkdown ?? "");
+    }
+
+    const draftGroups = patchmap.groups.map((group) => ({
+      title: group.title,
+      description: group.description ?? undefined,
+      orderIndex: group.orderIndex,
+      fileIds: group.fileIds,
+    }));
+    const hasAnyDraftFiles = draftGroups.some((group) => group.fileIds.length > 0);
+
+    if (hasAnyDraftFiles) {
+      setGroups(draftGroups);
+      setSelectedGroupIndex(0);
+      const firstGroupWithFiles = draftGroups.find((group) => group.fileIds.length > 0);
+      setSelectedFileId(firstGroupWithFiles?.fileIds[0] ?? null);
+    }
+  }, [pullRequestId]);
+
+  useEffect(() => {
+    async function run() {
+      if (!pullRequestId) {
+        setIsLoading(false);
+        setLoadError("Missing pull request id. Re-open from Register page.");
+        return;
+      }
+
+      setIsLoading(true);
+      setLoadError(null);
+      setGroupingError(null);
+      setDraftError(null);
+
+      try {
+        await Promise.all([loadGroupsAndFiles(), loadPatchMapForPullRequest()]);
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : "Unable to load patchmap workspace");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void run();
+  }, [pullRequestId, loadGroupsAndFiles, loadPatchMapForPullRequest]);
+
+  const selectedGroup = groups[selectedGroupIndex] ?? null;
+  const selectedFile = selectedFileId ? fileMap.get(selectedFileId) : null;
+
+  function handleAnnotationChange(fileId: string, value: string) {
+    setAnnotations((prev) => ({ ...prev, [fileId]: value }));
+  }
+
+  async function saveDraft(): Promise<string> {
+    const response = await fetch("/api/patchmaps/save-draft", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        pullRequestId,
+        patchmap: patchmapId
+          ? {
+              id: patchmapId,
+              status: patchmapStatus,
+              versionNumber: patchmapVersion,
+            }
+          : {
+              status: "draft",
+              versionNumber: 1,
+            },
+        summary: {
+          purpose: purpose || null,
+          riskNotes: riskNotes || null,
+          testNotes: testNotes || null,
+          behaviorChangeNotes: behaviorChangeNotes || null,
+          demoable: demoable === "yes" ? true : demoable === "no" ? false : null,
+          demoNotes: demoNotes || null,
+        },
+        groups: groups.map((group, index) => ({
+          title: group.title,
+          description: group.description || null,
+          orderIndex: typeof group.orderIndex === "number" ? group.orderIndex : index,
+          fileIds: group.fileIds,
+        })),
+      }),
+    });
+
+    const data = (await response.json()) as SaveDraftResponse | { error: string };
+
+    if (!response.ok) {
+      throw new Error("error" in data ? data.error : "Failed to save draft");
+    }
+
+    const saved = data as SaveDraftResponse;
+    setPatchmapId(saved.patchmap.id);
+    setPatchmapStatus(saved.patchmap.status);
+    setPatchmapVersion(saved.patchmap.versionNumber);
+
+    return saved.patchmap.id;
+  }
+
+  async function handleSaveDraft() {
+    try {
+      setIsSavingDraft(true);
+      setDraftError(null);
+      await saveDraft();
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : "Failed to save draft");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }
+
+  async function handleGenerateMarkdown() {
+    try {
+      setIsGeneratingMarkdown(true);
+      setDraftError(null);
+
+      const id = await saveDraft();
+
+      const response = await fetch("/api/patchmaps/generate-markdown", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ patchmapId: id }),
+      });
+
+      const data = (await response.json()) as GenerateMarkdownResponse | { error: string };
+
+      if (!response.ok) {
+        throw new Error("error" in data ? data.error : "Failed to generate markdown");
+      }
+
+      setGeneratedMarkdown((data as GenerateMarkdownResponse).markdown);
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : "Failed to generate markdown");
+    } finally {
+      setIsGeneratingMarkdown(false);
+    }
+  }
+
+  async function handleCopyMarkdown() {
+    if (!generatedMarkdown.trim()) return;
+
+    try {
+      await navigator.clipboard.writeText(generatedMarkdown);
+    } catch {
+      setDraftError("Unable to copy markdown to clipboard.");
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <main className="pm-shell">
+        <div className="pm-card p-6">Loading PatchMap workspace...</div>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="pm-shell">
+        <div className="pm-card p-6">
+          <div className="pm-alert pm-alert-error">{loadError}</div>
+          <div className="mt-2">
+            <Link href="/register" className="pm-button pm-button-secondary">
+              Back to Register
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="pm-shell">
+      <section className="pm-page-intro pm-card px-5 py-5 md:px-6 md:py-6">
+        <div className="pm-context-kicker">Grouped review workspace</div>
+        <h1 className="pm-hero-title mt-2">PatchMap Viewer</h1>
+        <p className="pm-hero-subtitle">
+          Review grouped files, capture intent, and generate markdown ready for PR comments.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-3">
+          <Link href="/register" className="pm-button pm-button-secondary">
+            Back to Register
+          </Link>
+          <Link href="/settings" className="pm-button pm-button-secondary">
+            Settings
+          </Link>
+        </div>
+      </section>
+
+      <section className="pm-fade-stagger mt-6 grid gap-4">
+        <article className="pm-card p-5 md:p-6">
+          <div className="pm-card-header">
+            <div>
+              <h2 className="pm-card-title">PatchMap Draft + Markdown</h2>
+              <p className="pm-card-subtitle">
+                Fill out summary details, save draft metadata, and generate markdown for your PR.
+              </p>
+            </div>
+            <span className="pm-pill">{patchmapId ? "Existing Draft" : "New Draft"}</span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="pm-label" htmlFor="purpose">
+              Purpose
+              <textarea
+                id="purpose"
+                className="pm-textarea"
+                value={purpose}
+                onChange={(event) => setPurpose(event.target.value)}
+              />
+            </label>
+
+            <label className="pm-label" htmlFor="behaviorChangeNotes">
+              Behavior Change
+              <textarea
+                id="behaviorChangeNotes"
+                className="pm-textarea"
+                value={behaviorChangeNotes}
+                onChange={(event) => setBehaviorChangeNotes(event.target.value)}
+              />
+            </label>
+
+            <label className="pm-label" htmlFor="riskNotes">
+              Risk Notes
+              <textarea
+                id="riskNotes"
+                className="pm-textarea"
+                value={riskNotes}
+                onChange={(event) => setRiskNotes(event.target.value)}
+              />
+            </label>
+
+            <label className="pm-label" htmlFor="testNotes">
+              Test Notes
+              <textarea
+                id="testNotes"
+                className="pm-textarea"
+                value={testNotes}
+                onChange={(event) => setTestNotes(event.target.value)}
+              />
+            </label>
+
+            <label className="pm-label" htmlFor="demoable">
+              Demoable
+              <select
+                id="demoable"
+                className="pm-select"
+                value={demoable}
+                onChange={(event) => setDemoable(event.target.value as "" | "yes" | "no")}
+              >
+                <option value="">Not set</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+
+            <label className="pm-label" htmlFor="demoNotes">
+              Demo Notes
+              <textarea
+                id="demoNotes"
+                className="pm-textarea"
+                value={demoNotes}
+                onChange={(event) => setDemoNotes(event.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-3">
+            <button
+              className="pm-button pm-button-secondary"
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={isSavingDraft || isGeneratingMarkdown}
+            >
+              {isSavingDraft ? "Saving Draft..." : "Save Draft"}
+            </button>
+            <button
+              className="pm-button pm-button-primary"
+              type="button"
+              onClick={handleGenerateMarkdown}
+              disabled={isGeneratingMarkdown || isSavingDraft}
+            >
+              {isGeneratingMarkdown ? "Generating..." : "Generate Markdown"}
+            </button>
+            <button
+              className="pm-button pm-button-secondary"
+              type="button"
+              onClick={handleCopyMarkdown}
+              disabled={!generatedMarkdown.trim()}
+            >
+              Copy Markdown
+            </button>
+          </div>
+
+          {draftError ? <div className="pm-alert pm-alert-error mt-2">{draftError}</div> : null}
+
+          <label className="pm-label mt-2" htmlFor="generatedMarkdown">
+            Generated Markdown
+            <textarea
+              id="generatedMarkdown"
+              className="pm-textarea min-h-[260px] font-mono text-sm"
+              value={generatedMarkdown}
+              readOnly
+            />
+          </label>
+        </article>
+
+        {groupingError ? <div className="pm-alert pm-alert-error">{groupingError}</div> : null}
+
+        {groups.length > 0 ? (
+          <section className="pm-card p-4 md:p-5">
+            <div className="pm-card-header">
+              <div>
+                <h2 className="pm-card-title">Grouped PR Viewer + Reviewer Notes</h2>
+                <p className="pm-card-subtitle">Select a group and annotate file intent for review walkthroughs.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[290px_minmax(0,1fr)]">
+              <aside className="rounded-xl border border-[var(--pm-border)] bg-[var(--pm-surface-muted)] p-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
+                  Auto Groups
+                </div>
+                <div className="mt-3 grid gap-2">
+                  {groups.map((group, index) => {
+                    const isActive = index === selectedGroupIndex;
+                    return (
+                      <button
+                        key={`${group.title}-${index}`}
+                        type="button"
+                        onClick={() => {
+                          setSelectedGroupIndex(index);
+                          setSelectedFileId(group.fileIds[0] ?? null);
+                        }}
+                        className={`rounded-lg border px-3 py-2 text-left transition ${
+                          isActive
+                            ? "border-[var(--pm-brand-teal)] bg-white shadow-sm"
+                            : "border-[var(--pm-border)] bg-white/80 hover:border-[var(--pm-border-strong)]"
+                        }`}
+                      >
+                        <div className="text-sm font-semibold text-[var(--pm-brand-navy)]">{group.title}</div>
+                        <div className="mt-0.5 text-xs text-[var(--pm-text-soft)]">{group.fileIds.length} file(s)</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-lg font-semibold text-[var(--pm-brand-navy)]">
+                    {selectedGroup?.title ?? "No group selected"}
+                  </h3>
+                  <span className="pm-pill">{selectedGroup?.fileIds.length ?? 0} files</span>
+                </div>
+                {selectedGroup?.description ? (
+                  <p className="mt-2 text-sm text-[var(--pm-text-soft)]">{selectedGroup.description}</p>
+                ) : null}
+
+                {selectedGroup && selectedGroup.fileIds.length > 0 ? (
+                  <>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedGroup.fileIds.map((fileId) => {
+                        const file = fileMap.get(fileId);
+                        const active = selectedFileId === fileId;
+                        return (
+                          <button
+                            key={fileId}
+                            type="button"
+                            onClick={() => setSelectedFileId(fileId)}
+                            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                              active
+                                ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"
+                                : "border-[var(--pm-border)] bg-white text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
+                            }`}
+                            title={file?.filePath ?? fileId}
+                          >
+                            {file?.filePath ?? fileId}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {selectedFileId ? (
+                      <div className="mt-2 grid gap-4">
+                        <div className="pm-diff">
+                          <div className="pm-diff-header">{selectedFile?.filePath ?? "Unknown file"}</div>
+                          {selectedFile?.patchText ? (
+                            <pre className="pm-diff-body">
+                              {selectedFile.patchText.split("\n").map((line, index) => (
+                                <span key={`${index}-${line}`} className={diffLineClass(line)}>
+                                  {line}
+                                </span>
+                              ))}
+                            </pre>
+                          ) : (
+                            <div className="pm-diff-body">Diff content not available for this file.</div>
+                          )}
+                        </div>
+
+                        <label className="pm-label" htmlFor="annotation">
+                          Reviewer Annotation (UI State)
+                          <textarea
+                            id="annotation"
+                            className="pm-textarea"
+                            value={annotations[selectedFileId] ?? ""}
+                            onChange={(event) => handleAnnotationChange(selectedFileId, event.target.value)}
+                            placeholder="Explain what this file changes and how reviewers should validate it."
+                            rows={5}
+                          />
+                        </label>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="pm-alert mt-2">No files in selected group.</div>
+                )}
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
+
+
+
+

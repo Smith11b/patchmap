@@ -2,7 +2,7 @@ import { RegisterFromProviderRequest } from "@/lib/schemas/register-from-provide
 
 export type ParsedProviderPullRequestUrl = Omit<
   RegisterFromProviderRequest,
-  "workspaceSlug"
+  "workspaceId"
 >;
 
 const UNSUPPORTED_URL_ERROR =
@@ -87,3 +87,4 @@ export function parseProviderPullRequestUrl(rawUrl: string): ParseResult {
 
   return { error: UNSUPPORTED_URL_ERROR };
 }
+

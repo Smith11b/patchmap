@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const githubRegisterFromProviderSchema = z.object({
-  workspaceSlug: z.string().min(1),
+  workspaceId: z.string().uuid(),
   provider: z.literal("github"),
   owner: z.string().min(1),
   name: z.string().min(1),
@@ -9,7 +9,7 @@ const githubRegisterFromProviderSchema = z.object({
 });
 
 const gitlabRegisterFromProviderSchema = z.object({
-  workspaceSlug: z.string().min(1),
+  workspaceId: z.string().uuid(),
   provider: z.literal("gitlab"),
   projectPath: z.string().min(1),
   prNumber: z.number().int().positive(),

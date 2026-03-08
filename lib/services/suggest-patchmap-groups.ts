@@ -3,12 +3,12 @@ import {
   SuggestPatchMapGroupsQuery,
   SuggestPatchMapGroupsResponse,
 } from "@/lib/schemas/suggest-patchmap-groups";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export async function suggestPatchMapGroups(
   input: SuggestPatchMapGroupsQuery
 ): Promise<SuggestPatchMapGroupsResponse> {
-  const supabase = createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
   const { data: files, error } = await supabase
     .from("pr_files")
@@ -46,3 +46,5 @@ export async function suggestPatchMapGroups(
     groups,
   };
 }
+
+
