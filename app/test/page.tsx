@@ -864,7 +864,7 @@ function Field({
 }: {
   label: string;
   id: string;
-  children: React.ReactElement;
+  children: React.ReactElement<{ id?: string; name?: string }>;
 }) {
   const child = React.cloneElement(children, {
     id,
