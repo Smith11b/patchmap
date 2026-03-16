@@ -4,6 +4,7 @@ import { requireApiUser } from "@/lib/auth/require-api-user";
 import { assertWorkspaceMembership } from "@/lib/workspaces/access";
 import { parseProviderPullRequestUrl } from "@/lib/providers/parse-provider-pull-request-url";
 import { registerFromProvider } from "@/lib/services/register-from-provider";
+import type { RegisterFromProviderRequest } from "@/lib/schemas/register-from-provider";
 
 const registerByUrlSchema = z.object({
   workspaceId: z.string().uuid(),
@@ -30,11 +31,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: parseResult.error }, { status: 400 });
     }
 
+    const input = {
+      ...parseResult.payload,
+      workspaceId: parsed.workspaceId,
+    } as RegisterFromProviderRequest;
+
     const result = await registerFromProvider({
-      input: {
-        ...parseResult.payload,
-        workspaceId: parsed.workspaceId,
-      },
+      input,
       userId: auth.user.id,
     });
 

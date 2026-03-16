@@ -135,7 +135,9 @@ export async function generateAndStorePatchMapMarkdown(
           url: buildProviderFileUrl(pullRequest, path),
         };
       })
-      .filter((value): value is { path: string; url?: string | null } => Boolean(value));
+      .filter(
+        (value): value is { path: string; url: string | null } => value !== null
+      );
 
     groupsWithFiles.push({
       title: group.title,

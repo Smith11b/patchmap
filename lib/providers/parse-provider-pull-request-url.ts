@@ -1,9 +1,15 @@
-import { RegisterFromProviderRequest } from "@/lib/schemas/register-from-provider";
-
-export type ParsedProviderPullRequestUrl = Omit<
-  RegisterFromProviderRequest,
-  "workspaceId"
->;
+export type ParsedProviderPullRequestUrl =
+  | {
+      provider: "github";
+      owner: string;
+      name: string;
+      prNumber: number;
+    }
+  | {
+      provider: "gitlab";
+      projectPath: string;
+      prNumber: number;
+    };
 
 const UNSUPPORTED_URL_ERROR =
   "Unsupported URL format. Use a GitHub PR URL or GitLab MR URL.";
