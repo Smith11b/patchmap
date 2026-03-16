@@ -204,14 +204,14 @@ export default function PatchMapReadOnlyPage() {
 
   return (
     <main className="pm-shell">
-      <section className="pm-page-intro pm-card px-5 py-5 md:px-6 md:py-6">
+      <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
         <div className="pm-context-kicker">
           {walkthroughEnabled ? "Reviewer walkthrough" : "Read-only patchmap view"}
         </div>
         <h1 className="pm-hero-title mt-2">
           {walkthroughEnabled ? walkthrough?.title || "Review Walkthrough" : "PatchMap Snapshot"}
         </h1>
-        <p className="pm-hero-subtitle">
+        <p className="pm-hero-subtitle pm-section-lead">
           {walkthroughEnabled
             ? "Follow the author’s intended review sequence file by file."
             : "Review-only mode for previously generated patchmaps."}
@@ -222,8 +222,47 @@ export default function PatchMapReadOnlyPage() {
         </div>
       </section>
 
+      {activeWalkthrough ? (
+        <section className="pm-emphasis-card mt-8">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div>
+              <div className="pm-step-chip">Primary Review Mode</div>
+              <div className="pm-emphasis-title mt-3">Follow the guided walkthrough first</div>
+              <p className="pm-emphasis-copy">
+                The author has prepared a file-by-file path. Use the grouped view below only as supporting context.
+              </p>
+            </div>
+            <div className="pm-soft-panel">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--pm-text-soft)]">
+                Review length
+              </div>
+              <div className="mt-2 text-lg font-semibold text-[var(--pm-brand-navy)]">
+                {activeWalkthrough.steps.length} steps
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="pm-emphasis-card mt-8">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div>
+              <div className="pm-step-chip">Grouped Review Mode</div>
+              <div className="pm-emphasis-title mt-3">This PR does not have a walkthrough</div>
+              <p className="pm-emphasis-copy">
+                Review it through the groups below. If this change needs more author guidance, ask for a walkthrough from the editable view.
+              </p>
+            </div>
+            <div>
+              <Link href={`/patchmap/${pullRequestId}`} className="pm-button pm-button-primary">
+                Open Author View
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
       {summary ? (
-        <article className="pm-card mt-6 p-5 md:p-6">
+        <article className="pm-card mt-8 p-6 md:p-7">
           <h2 className="pm-card-title">Summary</h2>
           <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
             <div><strong>Purpose:</strong> {summary.purpose || "-"}</div>
@@ -241,7 +280,7 @@ export default function PatchMapReadOnlyPage() {
       ) : null}
 
       {activeWalkthrough ? (
-        <section className="pm-card mt-6 p-4 md:p-5">
+        <section className="pm-card mt-8 p-5 md:p-6">
           <div className="pm-card-header">
             <div>
               <h2 className="pm-card-title">Step-Through Review</h2>
@@ -258,8 +297,8 @@ export default function PatchMapReadOnlyPage() {
             <div className="pm-alert">{activeWalkthrough.introNotes}</div>
           ) : null}
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <aside className="rounded-xl border border-[var(--pm-border)] bg-[var(--pm-surface-muted)] p-3">
+          <div className="mt-5 grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+            <aside className="pm-soft-panel">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
                 Walkthrough Steps
               </div>
@@ -278,7 +317,7 @@ export default function PatchMapReadOnlyPage() {
                           : "border-[var(--pm-border)] bg-white/80 hover:border-[var(--pm-border-strong)]"
                       }`}
                     >
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--pm-text-soft)]">
+                      <div className="pm-step-chip">
                         Step {index + 1}
                       </div>
                       <div className="mt-1 break-words text-sm font-semibold text-[var(--pm-brand-navy)]">
@@ -293,7 +332,7 @@ export default function PatchMapReadOnlyPage() {
               </div>
             </aside>
 
-            <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-4">
+            <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--pm-text-soft)]">
@@ -354,7 +393,7 @@ export default function PatchMapReadOnlyPage() {
         </section>
       ) : null}
 
-      <section className="pm-card mt-6 p-4 md:p-5">
+      <section className="pm-card mt-8 p-5 md:p-6">
         <div className="pm-card-header">
           <div>
             <h2 className="pm-card-title">{walkthroughEnabled ? "Supporting Groups" : "Grouped PR Viewer"}</h2>
@@ -366,8 +405,8 @@ export default function PatchMapReadOnlyPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[290px_minmax(0,1fr)]">
-          <aside className="rounded-xl border border-[var(--pm-border)] bg-[var(--pm-surface-muted)] p-3">
+        <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="pm-soft-panel">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">Groups</div>
             <div className="mt-3 grid gap-2">
               {groups.map((group, index) => (
@@ -391,7 +430,7 @@ export default function PatchMapReadOnlyPage() {
             </div>
           </aside>
 
-          <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-4">
+          <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-[var(--pm-brand-navy)]">{selectedGroup?.title ?? "No group selected"}</h3>
               <span className="pm-pill">{selectedGroup?.fileIds.length ?? 0} files</span>

@@ -51,7 +51,7 @@ export async function proxy(request: NextRequest) {
 
   if (user && pathname === "/login") {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/register";
+    redirectUrl.pathname = "/dashboard";
     return NextResponse.redirect(redirectUrl);
   }
 

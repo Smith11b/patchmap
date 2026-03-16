@@ -224,21 +224,38 @@ export default function RegisterPage() {
 
   return (
     <main className="pm-shell">
-      <section className="pm-page-intro pm-card px-5 py-5 md:px-6 md:py-6">
+      <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
         <div className="pm-context-kicker">Provider ingestion and workspace-scoped PR registration</div>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
           <span className="pm-pill">Register</span>
           <span className="pm-pill">Workspace Scoped</span>
         </div>
         <h1 className="pm-hero-title mt-2">Register Pull Request</h1>
-        <p className="pm-hero-subtitle">
+        <p className="pm-hero-subtitle pm-section-lead">
           Paste a GitHub PR URL or GitLab MR URL to ingest PR data. Then open the dedicated PatchMap
           workspace to review files, annotate groups, and generate markdown.
         </p>
       </section>
 
-      <section className="pm-fade-stagger mt-6 grid gap-4">
-        <article className="pm-card p-5 md:p-6">
+      <section className="pm-emphasis-card mt-8">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <div className="pm-step-chip">Start Here</div>
+            <div className="pm-emphasis-title mt-3">Paste the PR link, then move into authoring</div>
+            <p className="pm-emphasis-copy">
+              Registration is just the intake step. After that, the important work happens in PatchMap where you group files and optionally build a walkthrough.
+            </p>
+          </div>
+          <div>
+            <Link href="/settings" className="pm-button pm-button-secondary">
+              Check Workspace Setup
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="pm-fade-stagger mt-8 grid gap-5">
+        <article className="pm-card p-6 md:p-7">
           <div className="pm-card-header">
             <div>
               <h2 className="pm-card-title">PR Source</h2>
@@ -301,7 +318,7 @@ export default function RegisterPage() {
         </article>
 
         {result ? (
-          <article className="pm-card p-5 md:p-6">
+          <article className="pm-card p-6 md:p-7">
             <div className="pm-card-header">
               <div>
                 <h2 className="pm-card-title">Registration Successful</h2>
@@ -311,18 +328,18 @@ export default function RegisterPage() {
               </div>
               <span className="pm-pill">{result.fileCount} files</span>
             </div>
-            <dl className="grid gap-3 text-sm md:grid-cols-3">
-              <div className="rounded-lg border border-[var(--pm-border)] bg-[var(--pm-bg-soft)] p-3">
+            <dl className="grid gap-4 text-sm md:grid-cols-3">
+              <div className="pm-soft-panel">
                 <dt className="text-xs uppercase tracking-wide text-[var(--pm-text-soft)]">Provider Repo</dt>
                 <dd className="mt-1 font-semibold text-[var(--pm-brand-navy)]">
                   {result.repository.owner}/{result.repository.name}
                 </dd>
               </div>
-              <div className="rounded-lg border border-[var(--pm-border)] bg-[var(--pm-bg-soft)] p-3">
+              <div className="pm-soft-panel">
                 <dt className="text-xs uppercase tracking-wide text-[var(--pm-text-soft)]">Pull Request</dt>
                 <dd className="mt-1 font-semibold text-[var(--pm-brand-navy)]">#{result.pullRequest.prNumber}</dd>
               </div>
-              <div className="rounded-lg border border-[var(--pm-border)] bg-[var(--pm-bg-soft)] p-3">
+              <div className="pm-soft-panel">
                 <dt className="text-xs uppercase tracking-wide text-[var(--pm-text-soft)]">State</dt>
                 <dd className="mt-1 font-semibold capitalize text-[var(--pm-brand-navy)]">{result.pullRequest.state}</dd>
               </div>

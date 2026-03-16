@@ -210,10 +210,10 @@ export default function SettingsPage() {
 
   return (
     <main className="pm-shell">
-      <section className="pm-page-intro pm-card px-5 py-5 md:px-6 md:py-6">
+      <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
         <div className="pm-context-kicker">Profile, workspaces, and provider access</div>
         <h1 className="pm-hero-title mt-2">Settings</h1>
-        <p className="pm-hero-subtitle">
+        <p className="pm-hero-subtitle pm-section-lead">
           Manage your personal provider credentials and workspace membership.
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
@@ -226,8 +226,28 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="pm-fade-stagger mt-6 grid gap-4 md:grid-cols-2">
-        <article className="pm-card p-5 md:p-6">
+      <section className="pm-emphasis-card mt-8">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <div className="pm-step-chip">Setup Checklist</div>
+            <div className="pm-emphasis-title mt-3">Configure access before you start registering PRs</div>
+            <p className="pm-emphasis-copy">
+              The most important tasks here are choosing the right workspace and saving the provider tokens your team needs for import.
+            </p>
+          </div>
+          <div className="pm-soft-panel">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--pm-text-soft)]">
+              Best next step
+            </div>
+            <div className="mt-2 text-lg font-semibold text-[var(--pm-brand-navy)]">
+              Save tokens, then return to Register
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="pm-fade-stagger mt-8 grid gap-5 md:grid-cols-2">
+        <article className="pm-card p-6 md:p-7">
           <h2 className="pm-card-title">GitHub Token</h2>
           <p className="pm-card-subtitle">
             Status: {status?.github ? `Connected (${new Date(status.github.updated_at).toLocaleString()})` : "Not set"}
@@ -271,7 +291,7 @@ export default function SettingsPage() {
           </div>
         </article>
 
-        <article className="pm-card p-5 md:p-6">
+        <article className="pm-card p-6 md:p-7">
           <h2 className="pm-card-title">GitLab Token</h2>
           <p className="pm-card-subtitle">
             Status: {status?.gitlab ? `Connected (${new Date(status.gitlab.updated_at).toLocaleString()})` : "Not set"}
@@ -316,8 +336,8 @@ export default function SettingsPage() {
         </article>
       </section>
 
-      <section className="pm-fade-stagger mt-2 grid gap-4 md:grid-cols-2">
-        <article className="pm-card p-5 md:p-6">
+      <section className="pm-fade-stagger mt-5 grid gap-5 md:grid-cols-2">
+        <article className="pm-card p-6 md:p-7">
           <h2 className="pm-card-title">Workspaces</h2>
           <p className="pm-card-subtitle">Create and select active workspace context.</p>
 
@@ -356,7 +376,7 @@ export default function SettingsPage() {
           </div>
         </article>
 
-        <article className="pm-card p-5 md:p-6">
+        <article className="pm-card p-6 md:p-7">
           <h2 className="pm-card-title">Invites</h2>
           <p className="pm-card-subtitle">Invite members and accept invite tokens.</p>
 

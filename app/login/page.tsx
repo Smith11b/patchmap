@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 
 function LoginContent() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/register";
+  const next = searchParams.get("next") ?? "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -113,20 +113,28 @@ function LoginContent() {
 
   return (
     <main className="pm-shell">
-      <section className="pm-page-intro pm-card mx-auto max-w-3xl p-6 md:p-8">
+      <section className="pm-page-intro pm-card mx-auto max-w-4xl p-7 md:p-9">
         <div className="pm-card-header">
           <div>
             <div className="pm-context-kicker">Secure workspace authentication</div>
             <h1 className="pm-hero-title mt-2 text-[2rem]">PatchMap Login</h1>
-            <p className="pm-hero-subtitle">
+            <p className="pm-hero-subtitle pm-section-lead">
               Use email + password, Google, GitHub, or a magic link to access workspace-linked PR
               registrations and review drafts.
             </p>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <div className="grid gap-4">
+        <div className="pm-emphasis-card mt-6">
+          <div className="pm-step-chip">Fastest Path</div>
+          <div className="pm-emphasis-title mt-3">Use the login method that gets you back to work fastest</div>
+          <p className="pm-emphasis-copy">
+            Password and OAuth are best for repeat access. Magic link is here when a teammate just needs to get back into a review quickly.
+          </p>
+        </div>
+
+        <div className="grid gap-8 md:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <div className="pm-soft-stack">
             <label className="pm-label" htmlFor="email">
               Work Email
               <input
@@ -195,7 +203,7 @@ function LoginContent() {
             </div>
           </div>
 
-          <aside className="rounded-[14px] border border-[var(--pm-border)] bg-[var(--pm-surface-muted)] p-4">
+          <aside className="pm-soft-panel">
             <div className="pm-context-kicker">Fallback Access</div>
             <h2 className="pm-card-title mt-2">Magic Link</h2>
             <p className="pm-card-subtitle">

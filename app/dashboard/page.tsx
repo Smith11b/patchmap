@@ -118,10 +118,10 @@ export default function DashboardPage() {
 
   return (
     <main className="pm-shell">
-      <section className="pm-page-intro pm-card px-5 py-5 md:px-6 md:py-6">
+      <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
         <div className="pm-context-kicker">Workspace dashboard</div>
         <h1 className="pm-hero-title mt-2">Recent PatchMaps</h1>
-        <p className="pm-hero-subtitle">
+        <p className="pm-hero-subtitle pm-section-lead">
           Browse recent PatchMaps in your active workspace, grouped by repository for quick change awareness.
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
@@ -134,8 +134,25 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="pm-fade-stagger mt-6 grid gap-4">
-        <article className="pm-card p-5 md:p-6">
+      <section className="pm-emphasis-card mt-8">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <div className="pm-step-chip">Next Action</div>
+            <div className="pm-emphasis-title mt-3">Start by registering a PR or opening a review</div>
+            <p className="pm-emphasis-copy">
+              Use this page as your review inbox. New work starts with registering a PR, and existing work should open directly into review.
+            </p>
+          </div>
+          <div>
+            <Link href="/register" className="pm-button pm-button-primary">
+              Register PR
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="pm-fade-stagger mt-8 grid gap-5">
+        <article className="pm-card p-6 md:p-7">
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
             <label className="pm-label" htmlFor="activeWorkspaceId">
               Active Workspace
@@ -186,7 +203,7 @@ export default function DashboardPage() {
 
                 <div className="mt-2 grid gap-3">
                   {repoGroup.items.map((item) => (
-                    <div key={item.patchmap.id} className="rounded-lg border border-[var(--pm-border)] bg-white p-4">
+                    <div key={item.patchmap.id} className="pm-soft-panel">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="text-sm font-semibold text-[var(--pm-brand-navy)]">
                           PR #{item.pullRequest.prNumber}: {item.pullRequest.title}

@@ -381,10 +381,10 @@ export default function PatchMapWalkthroughBuilderPage() {
 
   return (
     <main className="pm-shell">
-      <section className="pm-page-intro pm-card px-5 py-5 md:px-6 md:py-6">
+      <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
         <div className="pm-context-kicker">Walkthrough Builder</div>
         <h1 className="pm-hero-title mt-2">Author Review Walkthrough</h1>
-        <p className="pm-hero-subtitle">
+        <p className="pm-hero-subtitle pm-section-lead">
           Build a guided review sequence with the diff visible while you write each step.
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
@@ -407,8 +407,28 @@ export default function PatchMapWalkthroughBuilderPage() {
 
       {draftError ? <div className="pm-alert pm-alert-error mt-6">{draftError}</div> : null}
 
-      <section className="pm-card mt-6 p-5 md:p-6">
-        <div className="grid gap-4 md:grid-cols-2">
+      <section className="pm-emphasis-card mt-8">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div>
+            <div className="pm-step-chip">Builder Focus</div>
+            <div className="pm-emphasis-title mt-3">Write notes with the diff in view</div>
+            <p className="pm-emphasis-copy">
+              Pick a step on the left, write the guidance in the center, and use the file list on the right to decide what belongs in the walkthrough at all.
+            </p>
+          </div>
+          <div className="pm-soft-panel">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--pm-text-soft)]">
+              Current progress
+            </div>
+            <div className="mt-2 text-lg font-semibold text-[var(--pm-brand-navy)]">
+              {walkthroughSteps.length} step(s)
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="pm-card mt-8 p-6 md:p-7">
+        <div className="grid gap-5 md:grid-cols-2">
           <label className="pm-label" htmlFor="walkthroughTitle">
             Walkthrough Title
             <input
@@ -434,9 +454,9 @@ export default function PatchMapWalkthroughBuilderPage() {
         </div>
       </section>
 
-      <section className="pm-card mt-6 p-4 md:p-5">
-        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_280px]">
-          <aside className="rounded-xl border border-[var(--pm-border)] bg-[var(--pm-surface-muted)] p-3">
+      <section className="pm-card mt-8 p-5 md:p-6">
+        <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)_260px]">
+          <aside className="pm-soft-panel">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
@@ -461,7 +481,7 @@ export default function PatchMapWalkthroughBuilderPage() {
                         : "border-[var(--pm-border)] bg-white/80 hover:border-[var(--pm-border-strong)]"
                     }`}
                   >
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--pm-text-soft)]">
+                    <div className="pm-step-chip">
                       Step {index + 1}
                     </div>
                     <div className="mt-1 break-words text-sm font-semibold text-[var(--pm-brand-navy)]">
@@ -476,9 +496,15 @@ export default function PatchMapWalkthroughBuilderPage() {
             </div>
           </aside>
 
-          <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-4">
+            <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-5">
             {selectedStep ? (
               <>
+                <div className="pm-muted-panel mb-4">
+                  <div className="pm-emphasis-title">What to write here</div>
+                  <p className="pm-emphasis-copy">
+                    Explain why this file appears at this point in the review and what the reviewer should confirm before moving on.
+                  </p>
+                </div>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--pm-text-soft)]">
@@ -560,7 +586,7 @@ export default function PatchMapWalkthroughBuilderPage() {
             )}
           </div>
 
-          <aside className="rounded-xl border border-[var(--pm-border)] bg-[var(--pm-surface-muted)] p-3">
+          <aside className="pm-soft-panel">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
               Add Files
             </div>

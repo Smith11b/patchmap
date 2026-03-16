@@ -540,10 +540,10 @@ export default function PatchMapPage() {
 
   return (
     <main className="pm-shell">
-      <section className="pm-page-intro pm-card px-5 py-5 md:px-6 md:py-6">
+      <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
         <div className="pm-context-kicker">Grouped review workspace</div>
         <h1 className="pm-hero-title mt-2">PatchMap Viewer</h1>
-        <p className="pm-hero-subtitle">
+        <p className="pm-hero-subtitle pm-section-lead">
           Review grouped files, capture intent, and generate markdown ready for PR comments.
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
@@ -562,8 +562,38 @@ export default function PatchMapPage() {
         </div>
       </section>
 
-      <section className="pm-fade-stagger mt-6 grid gap-4">
-        <article className="pm-card p-5 md:p-6">
+      <section className="pm-fade-stagger mt-8 grid gap-5">
+        <article className="pm-emphasis-card">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <div className="pm-step-chip">Recommended Flow</div>
+              <div className="pm-emphasis-title mt-3">Choose your review mode</div>
+              <p className="pm-emphasis-copy">
+                Keep small PRs in grouped review. For larger changes, create a walkthrough so reviewers can follow a guided path.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="pm-soft-panel">
+                <div className="pm-emphasis-title">Grouped Review</div>
+                <p className="pm-emphasis-copy">Best when ordering and grouping are enough context on their own.</p>
+                <div className="mt-3">
+                  <span className="pm-pill">Default mode</span>
+                </div>
+              </div>
+              <div className="pm-soft-panel">
+                <div className="pm-emphasis-title">Guided Walkthrough</div>
+                <p className="pm-emphasis-copy">Use when reviewers need a file-by-file path, custom notes, and stronger author guidance.</p>
+                <div className="mt-3">
+                  <Link href={`/patchmap/${pullRequestId}/walkthrough`} className="pm-button pm-button-primary">
+                    {walkthroughEnabled ? "Edit Walkthrough" : "Create Walkthrough"}
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article className="pm-card p-6 md:p-7">
           <div className="pm-card-header">
             <div>
               <h2 className="pm-card-title">PatchMap Draft + Markdown</h2>
@@ -574,7 +604,7 @@ export default function PatchMapPage() {
             <span className="pm-pill">{patchmapId ? "Existing Draft" : "New Draft"}</span>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-2">
             <label className="pm-label" htmlFor="purpose">
               Purpose
               <textarea
@@ -640,7 +670,7 @@ export default function PatchMapPage() {
             </label>
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-3">
+          <div className="mt-4 flex flex-wrap gap-3">
             <button
               className="pm-button pm-button-secondary"
               type="button"
@@ -669,7 +699,7 @@ export default function PatchMapPage() {
 
           {draftError ? <div className="pm-alert pm-alert-error mt-2">{draftError}</div> : null}
 
-          <label className="pm-label mt-2" htmlFor="generatedMarkdown">
+          <label className="pm-label mt-4" htmlFor="generatedMarkdown">
             Generated Markdown
             <textarea
               id="generatedMarkdown"
@@ -683,7 +713,7 @@ export default function PatchMapPage() {
         {groupingError ? <div className="pm-alert pm-alert-error">{groupingError}</div> : null}
 
         {groups.length > 0 || fileMap.size > 0 ? (
-          <section className="pm-card p-4 md:p-5">
+          <section className="pm-card p-5 md:p-6">
             <div className="pm-card-header">
               <div>
                 <h2 className="pm-card-title">Grouped PR Viewer</h2>
@@ -701,8 +731,15 @@ export default function PatchMapPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[290px_minmax(0,1fr)]">
-              <aside className="rounded-xl border border-[var(--pm-border)] bg-[var(--pm-surface-muted)] p-3">
+            <div className="pm-muted-panel mb-5">
+              <div className="pm-emphasis-title">Start here</div>
+              <p className="pm-emphasis-copy">
+                Correct the groups on the left first. Once the structure feels right, decide whether this PR needs a walkthrough.
+              </p>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+              <aside className="pm-soft-panel">
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
                   Review Groups
                 </div>
@@ -759,7 +796,7 @@ export default function PatchMapPage() {
                     return (
                       <div
                         key={`${group.title}-${index}`}
-                        className={`min-w-0 rounded-lg border px-3 py-2 text-left transition ${
+                        className={`min-w-0 rounded-lg border px-3 py-3 text-left transition ${
                           isActive
                             ? "border-[var(--pm-brand-teal)] bg-white shadow-sm"
                             : "border-[var(--pm-border)] bg-white/80 hover:border-[var(--pm-border-strong)]"
@@ -869,7 +906,7 @@ export default function PatchMapPage() {
                 </div>
               </aside>
 
-              <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-4">
+              <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-lg font-semibold text-[var(--pm-brand-navy)]">
                     {selectedGroup?.title ?? "No group selected"}
