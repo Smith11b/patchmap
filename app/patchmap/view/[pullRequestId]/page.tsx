@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { diffLineClass, findGroupIndexForFile, mapStoredGroupsToSuggestedGroups } from "@/lib/patchmap/ui-utils";
+import { DiffPanel } from "@/app/components/patchmap/diff-panel";
+import { GroupFileList } from "@/app/components/patchmap/group-file-list";
+import { WalkthroughStepList } from "@/app/components/patchmap/walkthrough-step-list";
+import { findGroupIndexForFile, mapStoredGroupsToSuggestedGroups } from "@/lib/patchmap/ui-utils";
 import { usePatchMapWorkspace } from "@/lib/patchmap/use-patchmap-workspace";
 
 export default function PatchMapReadOnlyPage() {
@@ -168,34 +171,12 @@ export default function PatchMapReadOnlyPage() {
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
                 Walkthrough Steps
               </div>
-              <div className="mt-3 grid gap-2">
-                {activeWalkthrough.steps.map((step, index) => {
-                  const file = fileMap.get(step.prFileId);
-                  const isActive = index === currentStepIndex;
-                  return (
-                    <button
-                      key={step.id}
-                      type="button"
-                      onClick={() => goToStep(index)}
-                      className={`min-w-0 rounded-lg border px-3 py-3 text-left transition ${
-                        isActive
-                          ? "border-[var(--pm-brand-teal)] bg-white shadow-sm"
-                          : "border-[var(--pm-border)] bg-white/80 hover:border-[var(--pm-border-strong)]"
-                      }`}
-                    >
-                      <div className="pm-step-chip">
-                        Step {index + 1}
-                      </div>
-                      <div className="mt-1 break-words text-sm font-semibold text-[var(--pm-brand-navy)]">
-                        {step.title || file?.filePath || "Untitled step"}
-                      </div>
-                      <div className="mt-1 truncate text-xs text-[var(--pm-text-soft)]">
-                        {file?.filePath || step.prFileId}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <WalkthroughStepList
+                steps={activeWalkthrough.steps}
+                fileMap={fileMap}
+                activeIndex={currentStepIndex}
+                onSelect={goToStep}
+              />
             </aside>
 
             <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-5">
@@ -242,18 +223,7 @@ export default function PatchMapReadOnlyPage() {
                 <div className="pm-alert mt-4">No author notes for this step.</div>
               )}
 
-              <div className="pm-diff mt-4">
-                <div className="pm-diff-header">{selectedFile?.filePath ?? "Unknown file"}</div>
-                {selectedFile?.patchText ? (
-                  <pre className="pm-diff-body">
-                    {selectedFile.patchText.split("\n").map((line, index) => (
-                      <span key={`${index}-${line}`} className={diffLineClass(line)}>{line}</span>
-                    ))}
-                  </pre>
-                ) : (
-                  <div className="pm-diff-body">Diff content not available for this file.</div>
-                )}
-              </div>
+              <DiffPanel file={selectedFile} className="mt-4" />
             </div>
           </div>
         </section>
@@ -305,39 +275,17 @@ export default function PatchMapReadOnlyPage() {
 
             {selectedGroup && selectedGroup.fileIds.length > 0 ? (
               <>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedGroup.fileIds.map((fileId) => {
-                    const file = fileMap.get(fileId);
-                    return (
-                      <button
-                        key={fileId}
-                        type="button"
-                        onClick={() => setManualSelectedFileId(fileId)}
-                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                          selectedFileId === fileId
-                            ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"
-                            : "border-[var(--pm-border)] bg-white text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
-                        }`}
-                      >
-                        {file?.filePath ?? fileId}
-                      </button>
-                    );
-                  })}
+                <div className="mt-3">
+                  <GroupFileList
+                    fileIds={selectedGroup.fileIds}
+                    fileMap={fileMap}
+                    selectedFileId={selectedFileId}
+                    onSelect={setManualSelectedFileId}
+                  />
                 </div>
 
                 {selectedFileId && !walkthroughEnabled ? (
-                  <div className="pm-diff mt-2">
-                    <div className="pm-diff-header">{selectedFile?.filePath ?? "Unknown file"}</div>
-                    {selectedFile?.patchText ? (
-                      <pre className="pm-diff-body">
-                        {selectedFile.patchText.split("\n").map((line, index) => (
-                          <span key={`${index}-${line}`} className={diffLineClass(line)}>{line}</span>
-                        ))}
-                      </pre>
-                    ) : (
-                      <div className="pm-diff-body">Diff content not available for this file.</div>
-                    )}
-                  </div>
+                  <DiffPanel file={selectedFile} className="mt-2" />
                 ) : null}
               </>
             ) : (

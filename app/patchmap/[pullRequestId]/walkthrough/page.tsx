@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { DiffPanel } from "@/app/components/patchmap/diff-panel";
+import { FileChip } from "@/app/components/patchmap/file-chip";
+import { WalkthroughStepList } from "@/app/components/patchmap/walkthrough-step-list";
 import { SaveDraftPayload, SuggestedGroup, WalkthroughStepDraft } from "@/lib/patchmap/ui-types";
 import {
   buildSeedWalkthroughSteps,
   demoableToValue,
-  diffLineClass,
   mapStoredGroupsToSuggestedGroups,
   mapWalkthroughToDraftSteps,
 } from "@/lib/patchmap/ui-utils";
@@ -306,34 +308,13 @@ export default function PatchMapWalkthroughBuilderPage() {
               </div>
             </div>
 
-            <div className="mt-3 grid gap-2">
-              {walkthroughSteps.map((step, index) => {
-                const file = fileMap.get(step.prFileId);
-                const active = index === selectedStepIndex;
-                return (
-                  <button
-                    key={`${step.prFileId}-${index}`}
-                    type="button"
-                    onClick={() => setSelectedStepIndex(index)}
-                    className={`min-w-0 rounded-lg border px-3 py-3 text-left transition ${
-                      active
-                        ? "border-[var(--pm-brand-teal)] bg-white shadow-sm"
-                        : "border-[var(--pm-border)] bg-white/80 hover:border-[var(--pm-border-strong)]"
-                    }`}
-                  >
-                    <div className="pm-step-chip">
-                      Step {index + 1}
-                    </div>
-                    <div className="mt-1 break-words text-sm font-semibold text-[var(--pm-brand-navy)]">
-                      {step.title || file?.filePath || "Untitled step"}
-                    </div>
-                    <div className="mt-1 truncate text-xs text-[var(--pm-text-soft)]">
-                      {file?.filePath || step.prFileId}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            <WalkthroughStepList
+              steps={walkthroughSteps}
+              fileMap={fileMap}
+              activeIndex={selectedStepIndex}
+              onSelect={setSelectedStepIndex}
+              emptyMessage="No steps in this walkthrough yet."
+            />
           </aside>
 
             <div className="pm-grid-content-fix rounded-xl border border-[var(--pm-border)] bg-white p-5">
@@ -405,20 +386,7 @@ export default function PatchMapWalkthroughBuilderPage() {
                     />
                   </label>
 
-                  <div className="pm-diff">
-                    <div className="pm-diff-header">{selectedFile?.filePath ?? "Unknown file"}</div>
-                    {selectedFile?.patchText ? (
-                      <pre className="pm-diff-body">
-                        {selectedFile.patchText.split("\n").map((line, index) => (
-                          <span key={`${index}-${line}`} className={diffLineClass(line)}>
-                            {line}
-                          </span>
-                        ))}
-                      </pre>
-                    ) : (
-                      <div className="pm-diff-body">Diff content not available for this file.</div>
-                    )}
-                  </div>
+                  <DiffPanel file={selectedFile} />
                 </div>
               </>
             ) : (
@@ -439,15 +407,13 @@ export default function PatchMapWalkthroughBuilderPage() {
                 availableFileIds.map((fileId) => {
                   const file = fileMap.get(fileId);
                   return (
-                    <button
+                    <FileChip
                       key={fileId}
-                      type="button"
-                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[var(--pm-border)] bg-white px-3 py-1 text-xs font-medium text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
                       onClick={() => addStep(fileId)}
                       title={file?.filePath ?? fileId}
-                    >
-                      + {file?.filePath ?? fileId}
-                    </button>
+                      label={file?.filePath ?? fileId}
+                      prefix="+"
+                    />
                   );
                 })
               ) : (

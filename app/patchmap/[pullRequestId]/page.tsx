@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { DiffPanel } from "@/app/components/patchmap/diff-panel";
+import { GroupFileList } from "@/app/components/patchmap/group-file-list";
 import {
   SaveDraftPayload,
   SuggestedGroup,
   WalkthroughStepDraft,
 } from "@/lib/patchmap/ui-types";
-import { demoableToValue, diffLineClass } from "@/lib/patchmap/ui-utils";
+import { demoableToValue } from "@/lib/patchmap/ui-utils";
 import { usePatchMapDraftActions } from "@/lib/patchmap/use-patchmap-draft-actions";
 import { usePatchMapWorkspace } from "@/lib/patchmap/use-patchmap-workspace";
 
@@ -581,33 +583,20 @@ export default function PatchMapPage() {
                   <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
                     Ungrouped Files
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-2">
                     {ungroupedFileIds.length > 0 ? (
-                      ungroupedFileIds.map((fileId) => {
-                        const file = fileMap.get(fileId);
-                        const active = selectedFileId === fileId;
-                        return (
-                          <button
-                            key={fileId}
-                            type="button"
-                            draggable
-                            onDragStart={() => beginDrag(fileId)}
-                            onDragEnd={endDrag}
-                            onClick={() => {
-                              setSelectedFileId(fileId);
-                              setSelectedGroupIndex(-1);
-                            }}
-                            className={`max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition ${
-                              active
-                                ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"
-                                : "border-[var(--pm-border)] bg-white text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
-                            }`}
-                            title={file?.filePath ?? fileId}
-                          >
-                            {file?.filePath ?? fileId}
-                          </button>
-                        );
-                      })
+                      <GroupFileList
+                        fileIds={ungroupedFileIds}
+                        fileMap={fileMap}
+                        selectedFileId={selectedFileId}
+                        draggable
+                        onDragStart={beginDrag}
+                        onDragEnd={endDrag}
+                        onSelect={(fileId) => {
+                          setSelectedFileId(fileId);
+                          setSelectedGroupIndex(-1);
+                        }}
+                      />
                     ) : (
                       <div className="text-xs text-[var(--pm-text-soft)]">All files are currently assigned to a group.</div>
                     )}
@@ -692,37 +681,19 @@ export default function PatchMapPage() {
                         </label>
 
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {group.fileIds.length > 0 ? (
-                            group.fileIds.map((fileId) => {
-                              const file = fileMap.get(fileId);
-                              const active = selectedFileId === fileId;
-                              return (
-                                <button
-                                  key={fileId}
-                                  type="button"
-                                  draggable
-                                  onDragStart={() => beginDrag(fileId)}
-                                  onDragEnd={endDrag}
-                                  onClick={() => {
-                                    setSelectedGroupIndex(index);
-                                    setSelectedFileId(fileId);
-                                  }}
-                                  className={`max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition ${
-                                    active
-                                      ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"
-                                      : "border-[var(--pm-border)] bg-white text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
-                                  }`}
-                                  title={file?.filePath ?? fileId}
-                                >
-                                  {file?.filePath ?? fileId}
-                                </button>
-                              );
-                            })
-                          ) : (
-                            <div className="w-full rounded-lg border border-dashed border-[var(--pm-border)] px-3 py-2 text-xs text-[var(--pm-text-soft)]">
-                              Drop files here.
-                            </div>
-                          )}
+                          <GroupFileList
+                            fileIds={group.fileIds}
+                            fileMap={fileMap}
+                            selectedFileId={selectedFileId}
+                            draggable
+                            onDragStart={beginDrag}
+                            onDragEnd={endDrag}
+                            onSelect={(fileId) => {
+                              setSelectedGroupIndex(index);
+                              setSelectedFileId(fileId);
+                            }}
+                            emptyMessage="Drop files here."
+                          />
                         </div>
                       </div>
                     );
@@ -743,65 +714,24 @@ export default function PatchMapPage() {
 
                 {selectedGroup && selectedGroup.fileIds.length > 0 ? (
                   <>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {selectedGroup.fileIds.map((fileId) => {
-                        const file = fileMap.get(fileId);
-                        const active = selectedFileId === fileId;
-                        return (
-                          <button
-                            key={fileId}
-                            type="button"
-                            onClick={() => setSelectedFileId(fileId)}
-                            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                              active
-                                ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"
-                                : "border-[var(--pm-border)] bg-white text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
-                            }`}
-                            title={file?.filePath ?? fileId}
-                          >
-                            {file?.filePath ?? fileId}
-                          </button>
-                        );
-                      })}
+                    <div className="mt-3">
+                      <GroupFileList
+                        fileIds={selectedGroup.fileIds}
+                        fileMap={fileMap}
+                        selectedFileId={selectedFileId}
+                        onSelect={setSelectedFileId}
+                      />
                     </div>
 
                     {selectedFileId ? (
                       <div className="mt-2 grid gap-4">
-                        <div className="pm-diff">
-                          <div className="pm-diff-header">{selectedFile?.filePath ?? "Unknown file"}</div>
-                          {selectedFile?.patchText ? (
-                            <pre className="pm-diff-body">
-                              {selectedFile.patchText.split("\n").map((line, index) => (
-                                <span key={`${index}-${line}`} className={diffLineClass(line)}>
-                                  {line}
-                                </span>
-                              ))}
-                            </pre>
-                          ) : (
-                            <div className="pm-diff-body">Diff content not available for this file.</div>
-                          )}
-                        </div>
-
+                        <DiffPanel file={selectedFile} />
                       </div>
                     ) : null}
                   </>
                 ) : selectedFile ? (
                   <div className="mt-2 grid gap-4">
-                    <div className="pm-diff">
-                      <div className="pm-diff-header">{selectedFile.filePath}</div>
-                      {selectedFile.patchText ? (
-                        <pre className="pm-diff-body">
-                          {selectedFile.patchText.split("\n").map((line, index) => (
-                            <span key={`${index}-${line}`} className={diffLineClass(line)}>
-                              {line}
-                            </span>
-                          ))}
-                        </pre>
-                      ) : (
-                        <div className="pm-diff-body">Diff content not available for this file.</div>
-                      )}
-                    </div>
-
+                    <DiffPanel file={selectedFile} />
                   </div>
                 ) : (
                   <div className="pm-alert mt-2">No files in selected group.</div>
