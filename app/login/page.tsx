@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function Login() {
+function LoginContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/register";
   const [email, setEmail] = useState("");
@@ -223,5 +223,21 @@ export default function Login() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense
+      fallback={
+        <main className="pm-shell">
+          <section className="pm-page-intro pm-card mx-auto max-w-3xl p-6 md:p-8">
+            Loading login...
+          </section>
+        </main>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }
