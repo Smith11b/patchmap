@@ -2,149 +2,44 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-
-type SuggestedGroup = {
-  title: string;
-  description?: string;
-  orderIndex: number;
-  fileIds: string[];
-};
+import { useEffect, useState } from "react";
+import {
+  SaveDraftPayload,
+  SuggestedGroup,
+  WalkthroughStepDraft,
+} from "@/lib/patchmap/ui-types";
+import { demoableToValue, diffLineClass } from "@/lib/patchmap/ui-utils";
+import { usePatchMapDraftActions } from "@/lib/patchmap/use-patchmap-draft-actions";
+import { usePatchMapWorkspace } from "@/lib/patchmap/use-patchmap-workspace";
 
 type DragState = {
   fileId: string;
 };
 
-type WalkthroughStepDraft = {
-  prFileId: string;
-  title: string;
-  notes: string;
-};
-
-type SuggestedGroupsResponse = {
-  pullRequestId: string;
-  groups: SuggestedGroup[];
-};
-
-type LookupResponse = {
-  files: Array<{
-    id: string;
-    filePath: string;
-    oldFilePath?: string | null;
-    changeType: "added" | "modified" | "deleted" | "renamed";
-    patchText?: string | null;
-    displayOrder: number;
-  }>;
-};
-
-type PatchMapResponse = {
-  patchmap: {
-    id: string;
-    pullRequestId: string;
-    versionNumber: number;
-    status: "draft" | "published";
-    createdAt: string;
-    updatedAt: string;
-  };
-  summary: {
-    id: string;
-    purpose?: string | null;
-    riskNotes?: string | null;
-    testNotes?: string | null;
-    behaviorChangeNotes?: string | null;
-    demoable?: boolean | null;
-    demoNotes?: string | null;
-    generatedMarkdown?: string | null;
-  } | null;
-  groups: Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    orderIndex: number;
-    fileIds: string[];
-  }>;
-  walkthrough: {
-    id: string;
-    title?: string | null;
-    introNotes?: string | null;
-    steps: Array<{
-      id: string;
-      prFileId: string;
-      title?: string | null;
-      notes?: string | null;
-      orderIndex: number;
-    }>;
-  } | null;
-};
-
-type SaveDraftResponse = {
-  patchmap: {
-    id: string;
-    pullRequestId: string;
-    versionNumber: number;
-    status: "draft" | "published";
-  };
-  summary: {
-    id: string;
-    purpose?: string | null;
-    riskNotes?: string | null;
-    testNotes?: string | null;
-    behaviorChangeNotes?: string | null;
-    demoable?: boolean | null;
-    demoNotes?: string | null;
-  };
-  groups: Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    orderIndex: number;
-    fileIds: string[];
-  }>;
-  walkthrough: {
-    id: string;
-    title?: string | null;
-    introNotes?: string | null;
-    steps: Array<{
-      id: string;
-      prFileId: string;
-      title?: string | null;
-      notes?: string | null;
-      orderIndex: number;
-    }>;
-  } | null;
-};
-
-type GenerateMarkdownResponse = {
-  patchmapId: string;
-  markdown: string;
-};
-
-function diffLineClass(line: string): string {
-  if (line.startsWith("+")) return "pm-diff-line pm-diff-add";
-  if (line.startsWith("-")) return "pm-diff-line pm-diff-del";
-  if (line.startsWith("@@")) return "pm-diff-line pm-diff-hunk";
-  return "pm-diff-line";
-}
-
-function demoableToValue(demoable?: boolean | null): "" | "yes" | "no" {
-  if (demoable === true) return "yes";
-  if (demoable === false) return "no";
-  return "";
-}
-
 export default function PatchMapPage() {
   const params = useParams<{ pullRequestId: string }>();
   const pullRequestId = params.pullRequestId ?? "";
+  const { saveDraft, generateMarkdown } = usePatchMapDraftActions();
+  const {
+    isLoading,
+    loadError,
+    suggestionsError,
+    fileMap,
+    patchmap,
+    suggestedGroups,
+  } = usePatchMapWorkspace({
+    pullRequestId,
+    includeSuggestions: true,
+    missingPullRequestMessage: "Missing pull request id. Re-open from Register page.",
+    lookupErrorMessage: "Unable to fetch PR files for viewer.",
+    loadErrorMessage: "Unable to load patchmap workspace",
+    suggestionsErrorMessage: "Unable to fetch suggested file groups.",
+  });
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [groupingError, setGroupingError] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
 
   const [groups, setGroups] = useState<SuggestedGroup[]>([]);
-  const [fileMap, setFileMap] = useState<Map<string, LookupResponse["files"][number]>>(
-    new Map()
-  );
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -168,126 +63,79 @@ export default function PatchMapPage() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isGeneratingMarkdown, setIsGeneratingMarkdown] = useState(false);
 
-  const loadGroupsAndFiles = useCallback(async () => {
-    const [lookupResponse, groupsResponse] = await Promise.all([
-      fetch(`/api/pull-requests/lookup?pullRequestId=${pullRequestId}`),
-      fetch(`/api/patchmaps/suggest-groups?pullRequestId=${pullRequestId}`),
-    ]);
+  useEffect(() => {
+    setGroupingError(suggestionsError);
+  }, [suggestionsError]);
 
-    if (!lookupResponse.ok) {
-      throw new Error("Unable to fetch PR files for viewer.");
-    }
-
-    if (!groupsResponse.ok) {
-      setGroupingError("Unable to fetch suggested file groups.");
+  useEffect(() => {
+    if (isLoading || loadError) {
       return;
     }
 
-    const lookupData = (await lookupResponse.json()) as LookupResponse;
-    const suggestedData = (await groupsResponse.json()) as SuggestedGroupsResponse;
+    setDraftError(null);
 
-    const nextFileMap = new Map(lookupData.files.map((file) => [file.id, file] as const));
-    setFileMap(nextFileMap);
-    setGroups(suggestedData.groups);
+    if (patchmap) {
+      setPatchmapId(patchmap.patchmap.id);
+      setPatchmapStatus(patchmap.patchmap.status);
+      setPatchmapVersion(patchmap.patchmap.versionNumber);
 
-    if (suggestedData.groups.length > 0) {
-      setSelectedGroupIndex(0);
-      setSelectedFileId(suggestedData.groups[0].fileIds[0] ?? null);
-    }
-  }, [pullRequestId]);
+      setPurpose(patchmap.summary?.purpose ?? "");
+      setBehaviorChangeNotes(patchmap.summary?.behaviorChangeNotes ?? "");
+      setRiskNotes(patchmap.summary?.riskNotes ?? "");
+      setTestNotes(patchmap.summary?.testNotes ?? "");
+      setDemoable(demoableToValue(patchmap.summary?.demoable));
+      setDemoNotes(patchmap.summary?.demoNotes ?? "");
+      setGeneratedMarkdown(patchmap.summary?.generatedMarkdown ?? "");
 
-  const loadPatchMapForPullRequest = useCallback(async () => {
-    const response = await fetch(`/api/patchmaps/by-pr?pullRequestId=${pullRequestId}`);
-
-    if (response.status === 404) {
+      if (patchmap.walkthrough) {
+        setWalkthroughEnabled(true);
+        setWalkthroughTitle(patchmap.walkthrough.title ?? "");
+        setWalkthroughIntro(patchmap.walkthrough.introNotes ?? "");
+        setWalkthroughSteps(
+          patchmap.walkthrough.steps.map((step) => ({
+            prFileId: step.prFileId,
+            title: step.title ?? "",
+            notes: step.notes ?? "",
+          }))
+        );
+      } else {
+        setWalkthroughEnabled(false);
+        setWalkthroughTitle("");
+        setWalkthroughIntro("");
+        setWalkthroughSteps([]);
+      }
+    } else {
       setPatchmapId(null);
       setPatchmapStatus("draft");
       setPatchmapVersion(1);
+      setPurpose("");
+      setBehaviorChangeNotes("");
+      setRiskNotes("");
+      setTestNotes("");
+      setDemoable("");
+      setDemoNotes("");
       setGeneratedMarkdown("");
-      return;
-    }
-
-    const data = (await response.json()) as PatchMapResponse | { error: string };
-
-    if (!response.ok) {
-      setDraftError("error" in data ? data.error : "Unable to load patchmap");
-      return;
-    }
-
-    const patchmap = data as PatchMapResponse;
-
-    setPatchmapId(patchmap.patchmap.id);
-    setPatchmapStatus(patchmap.patchmap.status);
-    setPatchmapVersion(patchmap.patchmap.versionNumber);
-
-    if (patchmap.summary) {
-      setPurpose(patchmap.summary.purpose ?? "");
-      setBehaviorChangeNotes(patchmap.summary.behaviorChangeNotes ?? "");
-      setRiskNotes(patchmap.summary.riskNotes ?? "");
-      setTestNotes(patchmap.summary.testNotes ?? "");
-      setDemoable(demoableToValue(patchmap.summary.demoable));
-      setDemoNotes(patchmap.summary.demoNotes ?? "");
-      setGeneratedMarkdown(patchmap.summary.generatedMarkdown ?? "");
-    }
-
-    if (patchmap.walkthrough) {
-      setWalkthroughEnabled(true);
-      setWalkthroughTitle(patchmap.walkthrough.title ?? "");
-      setWalkthroughIntro(patchmap.walkthrough.introNotes ?? "");
-      setWalkthroughSteps(
-        patchmap.walkthrough.steps.map((step) => ({
-          prFileId: step.prFileId,
-          title: step.title ?? "",
-          notes: step.notes ?? "",
-        }))
-      );
-    } else {
       setWalkthroughEnabled(false);
       setWalkthroughTitle("");
       setWalkthroughIntro("");
       setWalkthroughSteps([]);
     }
 
-    const draftGroups = patchmap.groups.map((group) => ({
-      title: group.title,
-      description: group.description ?? undefined,
-      orderIndex: group.orderIndex,
-      fileIds: group.fileIds,
-    }));
-    const hasAnyDraftFiles = draftGroups.some((group) => group.fileIds.length > 0);
+    const draftGroups =
+      patchmap?.groups.map((group) => ({
+        title: group.title,
+        description: group.description ?? undefined,
+        orderIndex: group.orderIndex,
+        fileIds: group.fileIds,
+      })) ?? [];
+    const nextGroups =
+      draftGroups.some((group) => group.fileIds.length > 0) ? draftGroups : suggestedGroups;
 
-    if (hasAnyDraftFiles) {
-      setGroups(draftGroups);
-      setSelectedGroupIndex(0);
-      const firstGroupWithFiles = draftGroups.find((group) => group.fileIds.length > 0);
-      setSelectedFileId(firstGroupWithFiles?.fileIds[0] ?? null);
-    }
-  }, [pullRequestId]);
-
-  useEffect(() => {
-    async function run() {
-      if (!pullRequestId) {
-        setIsLoading(false);
-        setLoadError("Missing pull request id. Re-open from Register page.");
-        return;
-      }
-
-      setIsLoading(true);
-      setLoadError(null);
-      setGroupingError(null);
-      setDraftError(null);
-
-      try {
-        await Promise.all([loadGroupsAndFiles(), loadPatchMapForPullRequest()]);
-      } catch (error) {
-        setLoadError(error instanceof Error ? error.message : "Unable to load patchmap workspace");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    void run();
-  }, [pullRequestId, loadGroupsAndFiles, loadPatchMapForPullRequest]);
+    setGroups(nextGroups);
+    setSelectedGroupIndex(nextGroups.length > 0 ? 0 : -1);
+    const firstGroupWithFiles = nextGroups.find((group) => group.fileIds.length > 0);
+    setSelectedFileId(firstGroupWithFiles?.fileIds[0] ?? null);
+  }, [isLoading, loadError, patchmap, suggestedGroups]);
 
   const selectedGroup = groups[selectedGroupIndex] ?? null;
   const selectedFile = selectedFileId ? fileMap.get(selectedFileId) : null;
@@ -403,60 +251,50 @@ export default function PatchMapPage() {
     setDragState(null);
   }
 
-  async function saveDraft(): Promise<string> {
-    const response = await fetch("/api/patchmaps/save-draft", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  function buildDraftPayload(): SaveDraftPayload {
+    return {
+      pullRequestId,
+      patchmap: patchmapId
+        ? {
+            id: patchmapId,
+            status: patchmapStatus,
+            versionNumber: patchmapVersion,
+          }
+        : {
+            status: "draft",
+            versionNumber: 1,
+          },
+      summary: {
+        purpose: purpose || null,
+        riskNotes: riskNotes || null,
+        testNotes: testNotes || null,
+        behaviorChangeNotes: behaviorChangeNotes || null,
+        demoable: demoable === "yes" ? true : demoable === "no" ? false : null,
+        demoNotes: demoNotes || null,
       },
-      body: JSON.stringify({
-        pullRequestId,
-        patchmap: patchmapId
-          ? {
-              id: patchmapId,
-              status: patchmapStatus,
-              versionNumber: patchmapVersion,
-            }
-          : {
-              status: "draft",
-              versionNumber: 1,
-            },
-        summary: {
-          purpose: purpose || null,
-          riskNotes: riskNotes || null,
-          testNotes: testNotes || null,
-          behaviorChangeNotes: behaviorChangeNotes || null,
-          demoable: demoable === "yes" ? true : demoable === "no" ? false : null,
-          demoNotes: demoNotes || null,
-        },
-        groups: groups.map((group, index) => ({
-          title: group.title,
-          description: group.description || null,
-          orderIndex: typeof group.orderIndex === "number" ? group.orderIndex : index,
-          fileIds: group.fileIds,
-        })),
-        walkthrough: walkthroughEnabled
-          ? {
-              title: walkthroughTitle || null,
-              introNotes: walkthroughIntro || null,
-              steps: walkthroughSteps.map((step, index) => ({
-                prFileId: step.prFileId,
-                title: step.title || null,
-                notes: step.notes || null,
-                orderIndex: index,
-              })),
-            }
-          : null,
-      }),
-    });
+      groups: groups.map((group, index) => ({
+        title: group.title,
+        description: group.description || null,
+        orderIndex: typeof group.orderIndex === "number" ? group.orderIndex : index,
+        fileIds: group.fileIds,
+      })),
+      walkthrough: walkthroughEnabled
+        ? {
+            title: walkthroughTitle || null,
+            introNotes: walkthroughIntro || null,
+            steps: walkthroughSteps.map((step, index) => ({
+              prFileId: step.prFileId,
+              title: step.title || null,
+              notes: step.notes || null,
+              orderIndex: index,
+            })),
+          }
+        : null,
+    };
+  }
 
-    const data = (await response.json()) as SaveDraftResponse | { error: string };
-
-    if (!response.ok) {
-      throw new Error("error" in data ? data.error : "Failed to save draft");
-    }
-
-    const saved = data as SaveDraftResponse;
+  async function persistDraft(): Promise<string> {
+    const saved = await saveDraft(buildDraftPayload());
     setPatchmapId(saved.patchmap.id);
     setPatchmapStatus(saved.patchmap.status);
     setPatchmapVersion(saved.patchmap.versionNumber);
@@ -468,7 +306,7 @@ export default function PatchMapPage() {
     try {
       setIsSavingDraft(true);
       setDraftError(null);
-      await saveDraft();
+      await persistDraft();
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : "Failed to save draft");
     } finally {
@@ -481,23 +319,9 @@ export default function PatchMapPage() {
       setIsGeneratingMarkdown(true);
       setDraftError(null);
 
-      const id = await saveDraft();
-
-      const response = await fetch("/api/patchmaps/generate-markdown", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ patchmapId: id }),
-      });
-
-      const data = (await response.json()) as GenerateMarkdownResponse | { error: string };
-
-      if (!response.ok) {
-        throw new Error("error" in data ? data.error : "Failed to generate markdown");
-      }
-
-      setGeneratedMarkdown((data as GenerateMarkdownResponse).markdown);
+      const id = await persistDraft();
+      const result = await generateMarkdown(id);
+      setGeneratedMarkdown(result.markdown);
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : "Failed to generate markdown");
     } finally {

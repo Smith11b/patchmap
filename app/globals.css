@@ -529,3 +529,201 @@ a {
   color: var(--pm-text-soft);
   font-size: 0.88rem;
 }
+
+.pm-demo-frame {
+  position: relative;
+  height: 210px;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(13, 40, 67, 0.1);
+  background:
+    radial-gradient(circle at top right, rgba(20, 151, 154, 0.16), transparent 42%),
+    linear-gradient(180deg, #fdfefe, #edf6f8);
+}
+
+.pm-demo-glow {
+  position: absolute;
+  inset: auto auto -28px -12px;
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(102, 170, 61, 0.16), transparent 72%);
+}
+
+.pm-demo-toolbar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 12px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(13, 40, 67, 0.08);
+}
+
+.pm-demo-panel {
+  position: absolute;
+  border-radius: 14px;
+  border: 1px solid rgba(13, 40, 67, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 18px rgba(16, 37, 63, 0.08);
+}
+
+.pm-demo-panel-a {
+  left: 14px;
+  top: 42px;
+  width: 42%;
+  height: 138px;
+}
+
+.pm-demo-panel-b {
+  right: 14px;
+  top: 42px;
+  width: 48%;
+  height: 62px;
+}
+
+.pm-demo-panel-c {
+  right: 14px;
+  top: 112px;
+  width: 48%;
+  height: 68px;
+}
+
+.pm-demo-panel::before,
+.pm-demo-panel::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  border-radius: 999px;
+  background: rgba(13, 40, 67, 0.09);
+}
+
+.pm-demo-panel::before {
+  top: 14px;
+  height: 10px;
+}
+
+.pm-demo-panel::after {
+  top: 32px;
+  height: 8px;
+}
+
+.pm-demo-cursor {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--pm-brand-teal), #0e7f84);
+  box-shadow: 0 0 0 6px rgba(20, 151, 154, 0.16);
+}
+
+.pm-demo-import .pm-demo-panel-a {
+  animation: pm-demo-pulse 3.8s ease-in-out infinite;
+}
+
+.pm-demo-import .pm-demo-panel-b {
+  animation: pm-demo-rise 3.8s ease-in-out infinite;
+}
+
+.pm-demo-import .pm-demo-cursor {
+  animation: pm-cursor-import 3.8s ease-in-out infinite;
+}
+
+.pm-demo-annotate .pm-demo-panel-c {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.96)),
+    linear-gradient(180deg, rgba(19,53,36,0.16), rgba(74,31,36,0.1));
+  animation: pm-demo-annotate-highlight 4.2s ease-in-out infinite;
+}
+
+.pm-demo-annotate .pm-demo-cursor {
+  animation: pm-cursor-annotate 4.2s ease-in-out infinite;
+}
+
+.pm-demo-walkthrough .pm-demo-panel-a,
+.pm-demo-walkthrough .pm-demo-panel-b,
+.pm-demo-walkthrough .pm-demo-panel-c {
+  animation: pm-demo-stack 4.4s ease-in-out infinite;
+}
+
+.pm-demo-walkthrough .pm-demo-panel-b {
+  animation-delay: 0.15s;
+}
+
+.pm-demo-walkthrough .pm-demo-panel-c {
+  animation-delay: 0.3s;
+}
+
+.pm-demo-walkthrough .pm-demo-cursor {
+  animation: pm-cursor-walkthrough 4.4s ease-in-out infinite;
+}
+
+.pm-demo-review .pm-demo-panel-a {
+  width: 26%;
+}
+
+.pm-demo-review .pm-demo-panel-b,
+.pm-demo-review .pm-demo-panel-c {
+  width: 58%;
+}
+
+.pm-demo-review .pm-demo-panel-b {
+  height: 48px;
+}
+
+.pm-demo-review .pm-demo-panel-c {
+  top: 98px;
+  height: 82px;
+}
+
+.pm-demo-review .pm-demo-cursor {
+  animation: pm-cursor-review 3.6s ease-in-out infinite;
+}
+
+@keyframes pm-demo-pulse {
+  0%, 100% { transform: translateY(0); opacity: 0.92; }
+  45% { transform: translateY(-2px); opacity: 1; }
+}
+
+@keyframes pm-demo-rise {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-4px); }
+}
+
+@keyframes pm-demo-annotate-highlight {
+  0%, 100% { box-shadow: 0 10px 18px rgba(16, 37, 63, 0.08); }
+  50% { box-shadow: 0 0 0 2px rgba(20, 151, 154, 0.18), 0 12px 20px rgba(16, 37, 63, 0.1); }
+}
+
+@keyframes pm-demo-stack {
+  0%, 100% { transform: translateX(0); }
+  35% { transform: translateX(4px); }
+  70% { transform: translateX(-2px); }
+}
+
+@keyframes pm-cursor-import {
+  0%, 100% { left: 28px; top: 78px; }
+  45% { left: 188px; top: 76px; }
+  70% { left: 188px; top: 146px; }
+}
+
+@keyframes pm-cursor-annotate {
+  0%, 100% { left: 176px; top: 126px; }
+  40% { left: 204px; top: 126px; }
+  70% { left: 204px; top: 150px; }
+}
+
+@keyframes pm-cursor-walkthrough {
+  0%, 100% { left: 34px; top: 74px; }
+  30% { left: 34px; top: 110px; }
+  60% { left: 34px; top: 146px; }
+  80% { left: 190px; top: 144px; }
+}
+
+@keyframes pm-cursor-review {
+  0%, 100% { left: 154px; top: 70px; }
+  35% { left: 154px; top: 108px; }
+  65% { left: 154px; top: 150px; }
+  82% { left: 204px; top: 150px; }
+}

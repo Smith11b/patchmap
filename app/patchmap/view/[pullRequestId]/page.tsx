@@ -2,175 +2,47 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-
-type SuggestedGroup = {
-  title: string;
-  description?: string;
-  orderIndex: number;
-  fileIds: string[];
-};
-
-type SuggestedGroupsResponse = {
-  pullRequestId: string;
-  groups: SuggestedGroup[];
-};
-
-type LookupResponse = {
-  files: Array<{
-    id: string;
-    filePath: string;
-    oldFilePath?: string | null;
-    changeType: "added" | "modified" | "deleted" | "renamed";
-    patchText?: string | null;
-    displayOrder: number;
-  }>;
-};
-
-type PatchMapResponse = {
-  patchmap: {
-    id: string;
-    pullRequestId: string;
-    versionNumber: number;
-    status: "draft" | "published";
-    createdAt: string;
-    updatedAt: string;
-  };
-  summary: {
-    id: string;
-    purpose?: string | null;
-    riskNotes?: string | null;
-    testNotes?: string | null;
-    behaviorChangeNotes?: string | null;
-    demoable?: boolean | null;
-    demoNotes?: string | null;
-    generatedMarkdown?: string | null;
-  } | null;
-  groups: Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    orderIndex: number;
-    fileIds: string[];
-  }>;
-  walkthrough: {
-    id: string;
-    title?: string | null;
-    introNotes?: string | null;
-    steps: Array<{
-      id: string;
-      prFileId: string;
-      title?: string | null;
-      notes?: string | null;
-      orderIndex: number;
-    }>;
-  } | null;
-};
-
-function diffLineClass(line: string): string {
-  if (line.startsWith("+")) return "pm-diff-line pm-diff-add";
-  if (line.startsWith("-")) return "pm-diff-line pm-diff-del";
-  if (line.startsWith("@@")) return "pm-diff-line pm-diff-hunk";
-  return "pm-diff-line";
-}
+import { useState } from "react";
+import { diffLineClass, findGroupIndexForFile, mapStoredGroupsToSuggestedGroups } from "@/lib/patchmap/ui-utils";
+import { usePatchMapWorkspace } from "@/lib/patchmap/use-patchmap-workspace";
 
 export default function PatchMapReadOnlyPage() {
   const params = useParams<{ pullRequestId: string }>();
   const pullRequestId = params.pullRequestId ?? "";
+  const { isLoading, loadError, fileMap, patchmap, suggestedGroups } = usePatchMapWorkspace({
+    pullRequestId,
+    includeSuggestions: true,
+    missingPullRequestMessage: "Missing pull request id.",
+    lookupErrorMessage: "Unable to fetch PR files for viewer.",
+    loadErrorMessage: "Unable to load read-only patchmap",
+    suggestionsErrorMessage: "Unable to fetch suggested file groups.",
+  });
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [groups, setGroups] = useState<SuggestedGroup[]>([]);
-  const [fileMap, setFileMap] = useState<Map<string, LookupResponse["files"][number]>>(new Map());
-  const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [summary, setSummary] = useState<PatchMapResponse["summary"]>(null);
-  const [walkthrough, setWalkthrough] = useState<PatchMapResponse["walkthrough"]>(null);
+  const [manualSelectedGroupIndex, setManualSelectedGroupIndex] = useState(0);
+  const [manualSelectedFileId, setManualSelectedFileId] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  const selectedGroup = groups[selectedGroupIndex] ?? null;
-  const selectedFile = selectedFileId ? fileMap.get(selectedFileId) : null;
+  const summary = patchmap?.summary ?? null;
+  const walkthrough = patchmap?.walkthrough ?? null;
+  const draftGroups = patchmap ? mapStoredGroupsToSuggestedGroups(patchmap.groups) : [];
+  const groups =
+    draftGroups.some((group) => group.fileIds.length > 0) ? draftGroups : suggestedGroups;
   const currentStep = walkthrough?.steps[currentStepIndex] ?? null;
   const walkthroughEnabled = Boolean(walkthrough?.steps.length);
   const activeWalkthrough = walkthrough && walkthrough.steps.length > 0 ? walkthrough : null;
-
-  function findGroupIndexForFile(fileId: string, candidateGroups: SuggestedGroup[]) {
-    return candidateGroups.findIndex((group) => group.fileIds.includes(fileId));
-  }
-
-  const loadData = useCallback(async () => {
-    const [lookupResponse, groupsResponse, patchmapResponse] = await Promise.all([
-      fetch(`/api/pull-requests/lookup?pullRequestId=${pullRequestId}`),
-      fetch(`/api/patchmaps/suggest-groups?pullRequestId=${pullRequestId}`),
-      fetch(`/api/patchmaps/by-pr?pullRequestId=${pullRequestId}`),
-    ]);
-
-    if (!lookupResponse.ok) {
-      throw new Error("Unable to fetch PR files for viewer.");
-    }
-
-    const lookupData = (await lookupResponse.json()) as LookupResponse;
-    const nextFileMap = new Map(lookupData.files.map((file) => [file.id, file] as const));
-    setFileMap(nextFileMap);
-
-    if (patchmapResponse.ok) {
-      const patchmapData = (await patchmapResponse.json()) as PatchMapResponse;
-      setSummary(patchmapData.summary);
-      setWalkthrough(patchmapData.walkthrough);
-
-      const hasDraftGroups = patchmapData.groups.some((group) => group.fileIds.length > 0);
-      if (hasDraftGroups) {
-        const mapped = patchmapData.groups.map((group) => ({
-          title: group.title,
-          description: group.description ?? undefined,
-          orderIndex: group.orderIndex,
-          fileIds: group.fileIds,
-        }));
-        setGroups(mapped);
-        if (patchmapData.walkthrough?.steps.length) {
-          const firstStepFileId = patchmapData.walkthrough.steps[0].prFileId;
-          setCurrentStepIndex(0);
-          setSelectedFileId(firstStepFileId);
-          const groupIndex = findGroupIndexForFile(firstStepFileId, mapped);
-          setSelectedGroupIndex(groupIndex >= 0 ? groupIndex : 0);
-        } else {
-          const firstGroupWithFiles = mapped.find((group) => group.fileIds.length > 0);
-          setSelectedGroupIndex(0);
-          setSelectedFileId(firstGroupWithFiles?.fileIds[0] ?? null);
-        }
-        return;
-      }
-    }
-
-    if (groupsResponse.ok) {
-      const suggestedData = (await groupsResponse.json()) as SuggestedGroupsResponse;
-      setGroups(suggestedData.groups);
-      setSelectedGroupIndex(0);
-      setSelectedFileId(suggestedData.groups[0]?.fileIds[0] ?? null);
-    }
-  }, [pullRequestId]);
-
-  useEffect(() => {
-    async function run() {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        await loadData();
-      } catch (error) {
-        setLoadError(error instanceof Error ? error.message : "Unable to load read-only patchmap");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    if (!pullRequestId) {
-      setLoadError("Missing pull request id.");
-      setIsLoading(false);
-      return;
-    }
-
-    void run();
-  }, [pullRequestId, loadData]);
+  const groupedSelectedGroupIndex = groups[manualSelectedGroupIndex] ? manualSelectedGroupIndex : 0;
+  const selectedGroupIndex = walkthroughEnabled
+    ? findGroupIndexForFile(currentStep?.prFileId ?? "", groups)
+    : groupedSelectedGroupIndex;
+  const selectedGroup = groups[selectedGroupIndex] ?? null;
+  const groupedSelectedFileId =
+    manualSelectedFileId && selectedGroup?.fileIds.includes(manualSelectedFileId)
+      ? manualSelectedFileId
+      : selectedGroup?.fileIds[0] ?? null;
+  const selectedFileId = walkthroughEnabled
+    ? currentStep?.prFileId ?? null
+    : groupedSelectedFileId;
+  const selectedFile = selectedFileId ? fileMap.get(selectedFileId) : null;
 
   function goToStep(nextIndex: number) {
     if (!walkthrough) return;
@@ -178,12 +50,6 @@ export default function PatchMapReadOnlyPage() {
     if (!step) return;
 
     setCurrentStepIndex(nextIndex);
-    setSelectedFileId(step.prFileId);
-
-    const groupIndex = findGroupIndexForFile(step.prFileId, groups);
-    if (groupIndex >= 0) {
-      setSelectedGroupIndex(groupIndex);
-    }
   }
 
   if (isLoading) {
@@ -414,8 +280,8 @@ export default function PatchMapReadOnlyPage() {
                   key={`${group.title}-${index}`}
                   type="button"
                   onClick={() => {
-                    setSelectedGroupIndex(index);
-                    setSelectedFileId(group.fileIds[0] ?? null);
+                    setManualSelectedGroupIndex(index);
+                    setManualSelectedFileId(group.fileIds[0] ?? null);
                   }}
                   className={`rounded-lg border px-3 py-2 text-left transition ${
                     index === selectedGroupIndex
@@ -446,7 +312,7 @@ export default function PatchMapReadOnlyPage() {
                       <button
                         key={fileId}
                         type="button"
-                        onClick={() => setSelectedFileId(fileId)}
+                        onClick={() => setManualSelectedFileId(fileId)}
                         className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                           selectedFileId === fileId
                             ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"

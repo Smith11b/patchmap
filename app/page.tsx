@@ -1,21 +1,25 @@
 import Link from "next/link";
 
-const featurePoints = [
+const demoScenes = [
   {
-    title: "Group files into review sections",
-    description: "Organize changes into logical areas like API, service, repository, and UI.",
+    title: "Import a PR",
+    description: "Paste a PR URL, choose the workspace, and pull the files into Patchmap.",
+    frameClass: "pm-demo-import",
   },
   {
-    title: "Add human context",
-    description: "Write section summaries and file annotations that explain intent, scope, and risk.",
+    title: "Annotate Diffs",
+    description: "Add context while the changed file stays visible in front of you.",
+    frameClass: "pm-demo-annotate",
   },
   {
-    title: "Guide reviewers through the change",
-    description: "Order files deliberately so reviews follow the path the author intended.",
+    title: "Create a Walkthrough",
+    description: "Turn large changes into an ordered sequence with review notes for each step.",
+    frameClass: "pm-demo-walkthrough",
   },
   {
-    title: "Clarify technical and product impact",
-    description: "Help engineering, PM, and QA understand how a large PR fits together.",
+    title: "Review Quickly",
+    description: "Move through the guided path without hunting around the PR manually.",
+    frameClass: "pm-demo-review",
   },
 ];
 
@@ -40,14 +44,35 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="pm-fade-stagger mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {featurePoints.map((feature) => (
-          <article key={feature.title} className="pm-card p-6">
-            <div className="pm-context-kicker">Core capability</div>
-            <h2 className="pm-card-title mt-2">{feature.title}</h2>
-            <p className="pm-card-subtitle">{feature.description}</p>
-          </article>
-        ))}
+      <section className="pm-fade-stagger mt-8">
+        <article className="pm-card p-6 md:p-7">
+          <div className="pm-card-header">
+            <div>
+              <div className="pm-context-kicker">See The Flow</div>
+              <h2 className="pm-card-title mt-2 text-[1.2rem]">A smoother way to move from PR to confident review.</h2>
+              <p className="pm-card-subtitle pm-section-lead">
+                Import the change, shape the story, and guide reviewers through it without turning the review process into extra work.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {demoScenes.map((scene) => (
+              <article key={scene.title} className="pm-soft-panel">
+                <div className={`pm-demo-frame ${scene.frameClass}`}>
+                  <span className="pm-demo-glow" />
+                  <span className="pm-demo-toolbar" />
+                  <span className="pm-demo-panel pm-demo-panel-a" />
+                  <span className="pm-demo-panel pm-demo-panel-b" />
+                  <span className="pm-demo-panel pm-demo-panel-c" />
+                  <span className="pm-demo-cursor" />
+                </div>
+                <h3 className="pm-card-title mt-4">{scene.title}</h3>
+                <p className="pm-card-subtitle">{scene.description}</p>
+              </article>
+            ))}
+          </div>
+        </article>
       </section>
 
       <section className="pm-fade-stagger mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">

@@ -2,132 +2,32 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-
-type SuggestedGroup = {
-  title: string;
-  description?: string;
-  orderIndex: number;
-  fileIds: string[];
-};
-
-type WalkthroughStepDraft = {
-  prFileId: string;
-  title: string;
-  notes: string;
-};
-
-type LookupResponse = {
-  files: Array<{
-    id: string;
-    filePath: string;
-    oldFilePath?: string | null;
-    changeType: "added" | "modified" | "deleted" | "renamed";
-    patchText?: string | null;
-    displayOrder: number;
-  }>;
-};
-
-type PatchMapResponse = {
-  patchmap: {
-    id: string;
-    pullRequestId: string;
-    versionNumber: number;
-    status: "draft" | "published";
-    createdAt: string;
-    updatedAt: string;
-  };
-  summary: {
-    id: string;
-    purpose?: string | null;
-    riskNotes?: string | null;
-    testNotes?: string | null;
-    behaviorChangeNotes?: string | null;
-    demoable?: boolean | null;
-    demoNotes?: string | null;
-    generatedMarkdown?: string | null;
-  } | null;
-  groups: Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    orderIndex: number;
-    fileIds: string[];
-  }>;
-  walkthrough: {
-    id: string;
-    title?: string | null;
-    introNotes?: string | null;
-    steps: Array<{
-      id: string;
-      prFileId: string;
-      title?: string | null;
-      notes?: string | null;
-      orderIndex: number;
-    }>;
-  } | null;
-};
-
-type SaveDraftResponse = {
-  patchmap: {
-    id: string;
-    pullRequestId: string;
-    versionNumber: number;
-    status: "draft" | "published";
-  };
-  summary: {
-    id: string;
-    purpose?: string | null;
-    riskNotes?: string | null;
-    testNotes?: string | null;
-    behaviorChangeNotes?: string | null;
-    demoable?: boolean | null;
-    demoNotes?: string | null;
-  };
-  groups: Array<{
-    id: string;
-    title: string;
-    description?: string | null;
-    orderIndex: number;
-    fileIds: string[];
-  }>;
-  walkthrough: {
-    id: string;
-    title?: string | null;
-    introNotes?: string | null;
-    steps: Array<{
-      id: string;
-      prFileId: string;
-      title?: string | null;
-      notes?: string | null;
-      orderIndex: number;
-    }>;
-  } | null;
-};
-
-function diffLineClass(line: string): string {
-  if (line.startsWith("+")) return "pm-diff-line pm-diff-add";
-  if (line.startsWith("-")) return "pm-diff-line pm-diff-del";
-  if (line.startsWith("@@")) return "pm-diff-line pm-diff-hunk";
-  return "pm-diff-line";
-}
-
-function demoableToValue(demoable?: boolean | null): "" | "yes" | "no" {
-  if (demoable === true) return "yes";
-  if (demoable === false) return "no";
-  return "";
-}
+import { useEffect, useState } from "react";
+import { SaveDraftPayload, SuggestedGroup, WalkthroughStepDraft } from "@/lib/patchmap/ui-types";
+import {
+  buildSeedWalkthroughSteps,
+  demoableToValue,
+  diffLineClass,
+  mapStoredGroupsToSuggestedGroups,
+  mapWalkthroughToDraftSteps,
+} from "@/lib/patchmap/ui-utils";
+import { usePatchMapDraftActions } from "@/lib/patchmap/use-patchmap-draft-actions";
+import { usePatchMapWorkspace } from "@/lib/patchmap/use-patchmap-workspace";
 
 export default function PatchMapWalkthroughBuilderPage() {
   const params = useParams<{ pullRequestId: string }>();
   const pullRequestId = params.pullRequestId ?? "";
+  const { saveDraft } = usePatchMapDraftActions();
+  const { isLoading, loadError, fileMap, files, patchmap } = usePatchMapWorkspace({
+    pullRequestId,
+    missingPullRequestMessage: "Missing pull request id.",
+    lookupErrorMessage: "Unable to fetch PR files for walkthrough builder.",
+    loadErrorMessage: "Unable to load walkthrough builder",
+  });
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
-  const [fileMap, setFileMap] = useState<Map<string, LookupResponse["files"][number]>>(new Map());
   const [groups, setGroups] = useState<SuggestedGroup[]>([]);
   const [walkthroughTitle, setWalkthroughTitle] = useState("");
   const [walkthroughIntro, setWalkthroughIntro] = useState("");
@@ -153,105 +53,55 @@ export default function PatchMapWalkthroughBuilderPage() {
     (fileId) => !walkthroughSteps.some((step) => step.prFileId === fileId)
   );
 
-  const loadData = useCallback(async () => {
-    const [lookupResponse, patchmapResponse] = await Promise.all([
-      fetch(`/api/pull-requests/lookup?pullRequestId=${pullRequestId}`),
-      fetch(`/api/patchmaps/by-pr?pullRequestId=${pullRequestId}`),
-    ]);
-
-    if (!lookupResponse.ok) {
-      throw new Error("Unable to fetch PR files for walkthrough builder.");
-    }
-
-    const lookupData = (await lookupResponse.json()) as LookupResponse;
-    const nextFileMap = new Map(lookupData.files.map((file) => [file.id, file] as const));
-    setFileMap(nextFileMap);
-
-    if (patchmapResponse.status === 404) {
-      setGroups([]);
-      setWalkthroughTitle("");
-      setWalkthroughIntro("");
-      setWalkthroughSteps([]);
+  useEffect(() => {
+    if (isLoading || loadError) {
       return;
     }
 
-    const patchmapData = (await patchmapResponse.json()) as PatchMapResponse | { error: string };
+    setDraftError(null);
 
-    if (!patchmapResponse.ok) {
-      throw new Error("error" in patchmapData ? patchmapData.error : "Unable to load patchmap");
-    }
+    if (patchmap) {
+      setPatchmapId(patchmap.patchmap.id);
+      setPatchmapStatus(patchmap.patchmap.status);
+      setPatchmapVersion(patchmap.patchmap.versionNumber);
 
-    const patchmap = patchmapData as PatchMapResponse;
+      setPurpose(patchmap.summary?.purpose ?? "");
+      setBehaviorChangeNotes(patchmap.summary?.behaviorChangeNotes ?? "");
+      setRiskNotes(patchmap.summary?.riskNotes ?? "");
+      setTestNotes(patchmap.summary?.testNotes ?? "");
+      setDemoable(demoableToValue(patchmap.summary?.demoable));
+      setDemoNotes(patchmap.summary?.demoNotes ?? "");
 
-    setPatchmapId(patchmap.patchmap.id);
-    setPatchmapStatus(patchmap.patchmap.status);
-    setPatchmapVersion(patchmap.patchmap.versionNumber);
+      const nextGroups = mapStoredGroupsToSuggestedGroups(patchmap.groups);
+      setGroups(nextGroups);
 
-    setPurpose(patchmap.summary?.purpose ?? "");
-    setBehaviorChangeNotes(patchmap.summary?.behaviorChangeNotes ?? "");
-    setRiskNotes(patchmap.summary?.riskNotes ?? "");
-    setTestNotes(patchmap.summary?.testNotes ?? "");
-    setDemoable(demoableToValue(patchmap.summary?.demoable));
-    setDemoNotes(patchmap.summary?.demoNotes ?? "");
-
-    const nextGroups = patchmap.groups.map((group) => ({
-      title: group.title,
-      description: group.description ?? undefined,
-      orderIndex: group.orderIndex,
-      fileIds: group.fileIds,
-    }));
-    setGroups(nextGroups);
-
-    if (patchmap.walkthrough) {
-      setWalkthroughTitle(patchmap.walkthrough.title ?? "");
-      setWalkthroughIntro(patchmap.walkthrough.introNotes ?? "");
-      setWalkthroughSteps(
-        patchmap.walkthrough.steps.map((step) => ({
-          prFileId: step.prFileId,
-          title: step.title ?? nextFileMap.get(step.prFileId)?.filePath ?? "",
-          notes: step.notes ?? "",
-        }))
-      );
-      setSelectedStepIndex(0);
+      if (patchmap.walkthrough) {
+        setWalkthroughTitle(patchmap.walkthrough.title ?? "");
+        setWalkthroughIntro(patchmap.walkthrough.introNotes ?? "");
+        setWalkthroughSteps(mapWalkthroughToDraftSteps(patchmap.walkthrough, fileMap));
+      } else {
+        setWalkthroughTitle("Review Walkthrough");
+        setWalkthroughIntro("");
+        setWalkthroughSteps(buildSeedWalkthroughSteps(nextGroups, files, fileMap));
+      }
     } else {
-      const initialFileIds = nextGroups.flatMap((group) => group.fileIds);
-      const seedFileIds = initialFileIds.length > 0 ? initialFileIds : lookupData.files.map((file) => file.id);
+      setPatchmapId(null);
+      setPatchmapStatus("draft");
+      setPatchmapVersion(1);
+      setPurpose("");
+      setBehaviorChangeNotes("");
+      setRiskNotes("");
+      setTestNotes("");
+      setDemoable("");
+      setDemoNotes("");
+      setGroups([]);
       setWalkthroughTitle("Review Walkthrough");
       setWalkthroughIntro("");
-      setWalkthroughSteps(
-        seedFileIds.map((fileId) => ({
-          prFileId: fileId,
-          title: nextFileMap.get(fileId)?.filePath ?? "",
-          notes: "",
-        }))
-      );
-      setSelectedStepIndex(0);
-    }
-  }, [pullRequestId]);
-
-  useEffect(() => {
-    async function run() {
-      if (!pullRequestId) {
-        setIsLoading(false);
-        setLoadError("Missing pull request id.");
-        return;
-      }
-
-      setIsLoading(true);
-      setLoadError(null);
-      setDraftError(null);
-
-      try {
-        await loadData();
-      } catch (error) {
-        setLoadError(error instanceof Error ? error.message : "Unable to load walkthrough builder");
-      } finally {
-        setIsLoading(false);
-      }
+      setWalkthroughSteps(buildSeedWalkthroughSteps([], files, fileMap));
     }
 
-    void run();
-  }, [pullRequestId, loadData]);
+    setSelectedStepIndex(0);
+  }, [fileMap, files, isLoading, loadError, patchmap]);
 
   function updateStep(index: number, patch: Partial<WalkthroughStepDraft>) {
     setWalkthroughSteps((prev) =>
@@ -294,58 +144,48 @@ export default function PatchMapWalkthroughBuilderPage() {
     setSelectedStepIndex(walkthroughSteps.length);
   }
 
-  async function saveWalkthroughDraft() {
-    const response = await fetch("/api/patchmaps/save-draft", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  function buildDraftPayload(): SaveDraftPayload {
+    return {
+      pullRequestId,
+      patchmap: patchmapId
+        ? {
+            id: patchmapId,
+            status: patchmapStatus,
+            versionNumber: patchmapVersion,
+          }
+        : {
+            status: "draft",
+            versionNumber: 1,
+          },
+      summary: {
+        purpose: purpose || null,
+        riskNotes: riskNotes || null,
+        testNotes: testNotes || null,
+        behaviorChangeNotes: behaviorChangeNotes || null,
+        demoable: demoable === "yes" ? true : demoable === "no" ? false : null,
+        demoNotes: demoNotes || null,
       },
-      body: JSON.stringify({
-        pullRequestId,
-        patchmap: patchmapId
-          ? {
-              id: patchmapId,
-              status: patchmapStatus,
-              versionNumber: patchmapVersion,
-            }
-          : {
-              status: "draft",
-              versionNumber: 1,
-            },
-        summary: {
-          purpose: purpose || null,
-          riskNotes: riskNotes || null,
-          testNotes: testNotes || null,
-          behaviorChangeNotes: behaviorChangeNotes || null,
-          demoable: demoable === "yes" ? true : demoable === "no" ? false : null,
-          demoNotes: demoNotes || null,
-        },
-        groups: groups.map((group, index) => ({
-          title: group.title,
-          description: group.description || null,
-          orderIndex: typeof group.orderIndex === "number" ? group.orderIndex : index,
-          fileIds: group.fileIds,
+      groups: groups.map((group, index) => ({
+        title: group.title,
+        description: group.description || null,
+        orderIndex: typeof group.orderIndex === "number" ? group.orderIndex : index,
+        fileIds: group.fileIds,
+      })),
+      walkthrough: {
+        title: walkthroughTitle || null,
+        introNotes: walkthroughIntro || null,
+        steps: walkthroughSteps.map((step, index) => ({
+          prFileId: step.prFileId,
+          title: step.title || null,
+          notes: step.notes || null,
+          orderIndex: index,
         })),
-        walkthrough: {
-          title: walkthroughTitle || null,
-          introNotes: walkthroughIntro || null,
-          steps: walkthroughSteps.map((step, index) => ({
-            prFileId: step.prFileId,
-            title: step.title || null,
-            notes: step.notes || null,
-            orderIndex: index,
-          })),
-        },
-      }),
-    });
+      },
+    };
+  }
 
-    const data = (await response.json()) as SaveDraftResponse | { error: string };
-
-    if (!response.ok) {
-      throw new Error("error" in data ? data.error : "Failed to save walkthrough");
-    }
-
-    const saved = data as SaveDraftResponse;
+  async function saveWalkthroughDraft() {
+    const saved = await saveDraft(buildDraftPayload());
     setPatchmapId(saved.patchmap.id);
     setPatchmapStatus(saved.patchmap.status);
     setPatchmapVersion(saved.patchmap.versionNumber);
