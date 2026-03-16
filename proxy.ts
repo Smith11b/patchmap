@@ -12,7 +12,7 @@ if (!supabaseAnonKey) {
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
 }
 
-const PUBLIC_PATHS = new Set(["/login", "/auth/callback"]);
+const PUBLIC_PATHS = new Set(["/", "/login", "/auth/callback"]);
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({
@@ -61,4 +61,3 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
-

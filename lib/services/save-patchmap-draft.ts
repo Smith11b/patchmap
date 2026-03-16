@@ -4,8 +4,17 @@ import {
 } from "@/lib/schemas/save-patchmap-draft";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+function isMissingWalkthroughTableError(message?: string) {
+  return Boolean(
+    message &&
+      (message.includes("patchmap_walkthroughs") ||
+        message.includes("patchmap_walkthrough_steps"))
+  );
+}
+
 export async function savePatchMapDraft(
-  input: SavePatchMapDraftRequest
+  input: SavePatchMapDraftRequest,
+  actorUserId?: string
 ): Promise<SavePatchMapDraftResponse> {
   const supabase = createAdminSupabaseClient();
 
@@ -198,6 +207,98 @@ export async function savePatchMapDraft(
     });
   }
 
+  let savedWalkthrough: SavePatchMapDraftResponse["walkthrough"] = null;
+
+  if (input.walkthrough === null) {
+    const { error: deleteWalkthroughError } = await supabase
+      .from("patchmap_walkthroughs")
+      .delete()
+      .eq("patchmap_id", patchmapId);
+
+    if (
+      deleteWalkthroughError &&
+      !isMissingWalkthroughTableError(deleteWalkthroughError.message)
+    ) {
+      throw new Error(
+        `Failed to delete patchmap walkthrough: ${deleteWalkthroughError.message}`
+      );
+    }
+  } else if (input.walkthrough) {
+    const { data: walkthroughRow, error: walkthroughError } = await supabase
+      .from("patchmap_walkthroughs")
+      .upsert(
+        {
+          patchmap_id: patchmapId,
+          title: input.walkthrough.title ?? null,
+          intro_notes: input.walkthrough.introNotes ?? null,
+          created_by_user_id: actorUserId ?? null,
+          updated_by_user_id: actorUserId ?? null,
+        },
+        {
+          onConflict: "patchmap_id",
+        }
+      )
+      .select("id, title, intro_notes")
+      .single();
+
+    if (walkthroughError && isMissingWalkthroughTableError(walkthroughError.message)) {
+      savedWalkthrough = null;
+    } else if (walkthroughError || !walkthroughRow) {
+      throw new Error(
+        `Failed to save patchmap walkthrough: ${walkthroughError?.message ?? "unknown error"}`
+      );
+    } else {
+      const { error: deleteStepsError } = await supabase
+        .from("patchmap_walkthrough_steps")
+        .delete()
+        .eq("walkthrough_id", walkthroughRow.id);
+
+      if (deleteStepsError && !isMissingWalkthroughTableError(deleteStepsError.message)) {
+        throw new Error(
+          `Failed to clear patchmap walkthrough steps: ${deleteStepsError.message}`
+        );
+      }
+
+      let steps: NonNullable<SavePatchMapDraftResponse["walkthrough"]>["steps"] = [];
+
+      if (input.walkthrough.steps.length > 0) {
+        const { data: stepRows, error: insertStepsError } = await supabase
+          .from("patchmap_walkthrough_steps")
+          .insert(
+            input.walkthrough.steps.map((step, index) => ({
+              walkthrough_id: walkthroughRow.id,
+              pr_file_id: step.prFileId,
+              title: step.title ?? null,
+              notes: step.notes ?? null,
+              order_index: typeof step.orderIndex === "number" ? step.orderIndex : index,
+            }))
+          )
+          .select("id, pr_file_id, title, notes, order_index");
+
+        if (insertStepsError && !isMissingWalkthroughTableError(insertStepsError.message)) {
+          throw new Error(
+            `Failed to save patchmap walkthrough steps: ${insertStepsError.message}`
+          );
+        }
+
+        steps = (stepRows ?? []).map((stepRow) => ({
+          id: stepRow.id,
+          prFileId: stepRow.pr_file_id,
+          title: stepRow.title,
+          notes: stepRow.notes,
+          orderIndex: stepRow.order_index,
+        }));
+      }
+
+      savedWalkthrough = {
+        id: walkthroughRow.id,
+        title: walkthroughRow.title,
+        introNotes: walkthroughRow.intro_notes,
+        steps,
+      };
+    }
+  }
+
   return {
     patchmap: {
       id: patchmapRow.id,
@@ -215,6 +316,7 @@ export async function savePatchMapDraft(
       demoNotes: summaryRow.demo_notes,
     },
     groups: savedGroups,
+    walkthrough: savedWalkthrough,
   };
 }
 

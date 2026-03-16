@@ -4,6 +4,14 @@ import {
 } from "@/lib/schemas/get-patchmap-by-pr";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+function isMissingWalkthroughTableError(message?: string) {
+  return Boolean(
+    message &&
+      (message.includes("patchmap_walkthroughs") ||
+        message.includes("patchmap_walkthrough_steps"))
+  );
+}
+
 export async function getPatchMapByPr(
   input: GetPatchMapByPrQuery
 ): Promise<GetPatchMapByPrResponse | null> {
@@ -100,6 +108,53 @@ export async function getPatchMapByPr(
     });
   }
 
+  const { data: walkthroughRow, error: walkthroughError } = await supabase
+    .from("patchmap_walkthroughs")
+    .select(`
+      id,
+      title,
+      intro_notes
+    `)
+    .eq("patchmap_id", patchmapId)
+    .maybeSingle();
+
+  if (walkthroughError && !isMissingWalkthroughTableError(walkthroughError.message)) {
+    throw new Error(`Failed to load patchmap walkthrough: ${walkthroughError.message}`);
+  }
+
+  let walkthrough: GetPatchMapByPrResponse["walkthrough"] = null;
+
+  if (walkthroughRow) {
+    const { data: stepRows, error: stepError } = await supabase
+      .from("patchmap_walkthrough_steps")
+      .select(`
+        id,
+        pr_file_id,
+        title,
+        notes,
+        order_index
+      `)
+      .eq("walkthrough_id", walkthroughRow.id)
+      .order("order_index", { ascending: true });
+
+    if (stepError && !isMissingWalkthroughTableError(stepError.message)) {
+      throw new Error(`Failed to load patchmap walkthrough steps: ${stepError.message}`);
+    }
+
+    walkthrough = {
+      id: walkthroughRow.id,
+      title: walkthroughRow.title,
+      introNotes: walkthroughRow.intro_notes,
+      steps: (stepRows ?? []).map((stepRow) => ({
+        id: stepRow.id,
+        prFileId: stepRow.pr_file_id,
+        title: stepRow.title,
+        notes: stepRow.notes,
+        orderIndex: stepRow.order_index,
+      })),
+    };
+  }
+
   return {
     patchmap: {
       id: patchmapRow.id,
@@ -122,6 +177,7 @@ export async function getPatchMapByPr(
         }
       : null,
     groups,
+    walkthrough,
   };
 }
 

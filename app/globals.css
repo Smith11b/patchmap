@@ -306,8 +306,6 @@ a {
   min-width: 0;
 }
 
-
-
 .pm-brand-link {
   display: inline-flex;
   align-items: center;
@@ -392,6 +390,10 @@ a {
   background: rgba(255, 255, 255, 0.95);
 }
 
+.pm-topbar-cta {
+  padding-inline: 0.85rem;
+}
+
 .pm-context-kicker {
   font-size: 0.74rem;
   font-weight: 650;
@@ -400,4 +402,54 @@ a {
   color: var(--pm-text-soft);
 }
 
+.pm-landing-hero {
+  position: relative;
+  overflow: hidden;
+}
 
+.pm-landing-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -8% -32% auto;
+  width: 280px;
+  height: 280px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(20, 151, 154, 0.13), rgba(20, 151, 154, 0));
+  pointer-events: none;
+}
+
+.pm-landing-title {
+  max-width: 12ch;
+  font-size: clamp(2.25rem, 5.2vw, 4.4rem);
+}
+
+.pm-landing-subtitle {
+  max-width: 64ch;
+  font-size: 1.02rem;
+}
+
+.pm-landing-stat {
+  border: 1px solid var(--pm-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 1rem;
+}
+
+.pm-landing-stat-label {
+  font-size: 0.8rem;
+  font-weight: 680;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pm-brand-navy);
+}
+
+.pm-landing-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 0 0.35rem;
+  color: var(--pm-text-soft);
+  font-size: 0.88rem;
+}

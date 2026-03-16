@@ -20,6 +20,19 @@ export const savePatchMapDraftSummarySchema = z.object({
   demoNotes: z.string().nullable().optional(),
 });
 
+export const savePatchMapDraftWalkthroughStepSchema = z.object({
+  prFileId: z.string().uuid(),
+  title: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  orderIndex: z.number().int().min(0),
+});
+
+export const savePatchMapDraftWalkthroughSchema = z.object({
+  title: z.string().nullable().optional(),
+  introNotes: z.string().nullable().optional(),
+  steps: z.array(savePatchMapDraftWalkthroughStepSchema),
+});
+
 export const savePatchMapDraftSchema = z.object({
   pullRequestId: z.string().uuid(),
   patchmap: z
@@ -31,6 +44,7 @@ export const savePatchMapDraftSchema = z.object({
     .optional(),
   summary: savePatchMapDraftSummarySchema,
   groups: z.array(savePatchMapDraftGroupSchema),
+  walkthrough: savePatchMapDraftWalkthroughSchema.nullable().optional(),
 });
 
 export const savePatchMapDraftResponseSchema = z.object({
@@ -60,6 +74,22 @@ export const savePatchMapDraftResponseSchema = z.object({
       fileIds: z.array(z.string().uuid()),
     })
   ),
+  walkthrough: z
+    .object({
+      id: z.string().uuid(),
+      title: z.string().nullable().optional(),
+      introNotes: z.string().nullable().optional(),
+      steps: z.array(
+        z.object({
+          id: z.string().uuid(),
+          prFileId: z.string().uuid(),
+          title: z.string().nullable().optional(),
+          notes: z.string().nullable().optional(),
+          orderIndex: z.number().int(),
+        })
+      ),
+    })
+    .nullable(),
 });
 
 export type SavePatchMapDraftRequest = z.infer<typeof savePatchMapDraftSchema>;

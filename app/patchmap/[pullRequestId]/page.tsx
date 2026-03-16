@@ -11,6 +11,16 @@ type SuggestedGroup = {
   fileIds: string[];
 };
 
+type DragState = {
+  fileId: string;
+};
+
+type WalkthroughStepDraft = {
+  prFileId: string;
+  title: string;
+  notes: string;
+};
+
 type SuggestedGroupsResponse = {
   pullRequestId: string;
   groups: SuggestedGroup[];
@@ -53,6 +63,18 @@ type PatchMapResponse = {
     orderIndex: number;
     fileIds: string[];
   }>;
+  walkthrough: {
+    id: string;
+    title?: string | null;
+    introNotes?: string | null;
+    steps: Array<{
+      id: string;
+      prFileId: string;
+      title?: string | null;
+      notes?: string | null;
+      orderIndex: number;
+    }>;
+  } | null;
 };
 
 type SaveDraftResponse = {
@@ -78,6 +100,18 @@ type SaveDraftResponse = {
     orderIndex: number;
     fileIds: string[];
   }>;
+  walkthrough: {
+    id: string;
+    title?: string | null;
+    introNotes?: string | null;
+    steps: Array<{
+      id: string;
+      prFileId: string;
+      title?: string | null;
+      notes?: string | null;
+      orderIndex: number;
+    }>;
+  } | null;
 };
 
 type GenerateMarkdownResponse = {
@@ -113,7 +147,11 @@ export default function PatchMapPage() {
   );
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [annotations, setAnnotations] = useState<Record<string, string>>({});
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [walkthroughEnabled, setWalkthroughEnabled] = useState(false);
+  const [walkthroughTitle, setWalkthroughTitle] = useState("");
+  const [walkthroughIntro, setWalkthroughIntro] = useState("");
+  const [walkthroughSteps, setWalkthroughSteps] = useState<WalkthroughStepDraft[]>([]);
 
   const [patchmapId, setPatchmapId] = useState<string | null>(null);
   const [patchmapStatus, setPatchmapStatus] = useState<"draft" | "published">("draft");
@@ -192,6 +230,24 @@ export default function PatchMapPage() {
       setGeneratedMarkdown(patchmap.summary.generatedMarkdown ?? "");
     }
 
+    if (patchmap.walkthrough) {
+      setWalkthroughEnabled(true);
+      setWalkthroughTitle(patchmap.walkthrough.title ?? "");
+      setWalkthroughIntro(patchmap.walkthrough.introNotes ?? "");
+      setWalkthroughSteps(
+        patchmap.walkthrough.steps.map((step) => ({
+          prFileId: step.prFileId,
+          title: step.title ?? "",
+          notes: step.notes ?? "",
+        }))
+      );
+    } else {
+      setWalkthroughEnabled(false);
+      setWalkthroughTitle("");
+      setWalkthroughIntro("");
+      setWalkthroughSteps([]);
+    }
+
     const draftGroups = patchmap.groups.map((group) => ({
       title: group.title,
       description: group.description ?? undefined,
@@ -235,9 +291,116 @@ export default function PatchMapPage() {
 
   const selectedGroup = groups[selectedGroupIndex] ?? null;
   const selectedFile = selectedFileId ? fileMap.get(selectedFileId) : null;
+  const assignedFileIds = new Set(groups.flatMap((group) => group.fileIds));
+  const ungroupedFileIds = Array.from(fileMap.values())
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .filter((file) => !assignedFileIds.has(file.id))
+    .map((file) => file.id);
 
-  function handleAnnotationChange(fileId: string, value: string) {
-    setAnnotations((prev) => ({ ...prev, [fileId]: value }));
+  function normalizeGroups(nextGroups: SuggestedGroup[]) {
+    return nextGroups.map((group, index) => ({
+      ...group,
+      orderIndex: index,
+    }));
+  }
+
+  function updateGroup(index: number, patch: Partial<SuggestedGroup>) {
+    setGroups((prev) =>
+      normalizeGroups(prev.map((group, groupIndex) => (groupIndex === index ? { ...group, ...patch } : group)))
+    );
+  }
+
+  function addGroup() {
+    setGroups((prev) =>
+      normalizeGroups([
+        ...prev,
+        {
+          title: `New Group ${prev.length + 1}`,
+          description: "",
+          orderIndex: prev.length,
+          fileIds: [],
+        },
+      ])
+    );
+    setSelectedGroupIndex(groups.length);
+  }
+
+  function removeGroup(index: number) {
+    setGroups((prev) => {
+      const nextGroups = normalizeGroups(prev.filter((_, groupIndex) => groupIndex !== index));
+      setSelectedGroupIndex((currentIndex) => {
+        if (nextGroups.length === 0) {
+          setSelectedFileId(null);
+          return 0;
+        }
+
+        const nextIndex = Math.min(currentIndex, nextGroups.length - 1);
+        setSelectedFileId(nextGroups[nextIndex]?.fileIds[0] ?? null);
+        return nextIndex;
+      });
+      return nextGroups;
+    });
+  }
+
+  function moveGroup(groupIndex: number, direction: -1 | 1) {
+    setGroups((prev) => {
+      const targetIndex = groupIndex + direction;
+      if (targetIndex < 0 || targetIndex >= prev.length) {
+        return prev;
+      }
+
+      const nextGroups = [...prev];
+      const [movedGroup] = nextGroups.splice(groupIndex, 1);
+      nextGroups.splice(targetIndex, 0, movedGroup);
+
+      setSelectedGroupIndex((currentIndex) => {
+        if (currentIndex === groupIndex) return targetIndex;
+        if (direction === -1 && currentIndex === targetIndex) return targetIndex + 1;
+        if (direction === 1 && currentIndex === targetIndex) return targetIndex - 1;
+        return currentIndex;
+      });
+
+      return normalizeGroups(nextGroups);
+    });
+  }
+
+  function moveFileToGroup(fileId: string, destinationGroupIndex: number | null) {
+    setGroups((prev) => {
+      const nextGroups = prev.map((group) => ({
+        ...group,
+        fileIds: group.fileIds.filter((id) => id !== fileId),
+      }));
+
+      if (destinationGroupIndex !== null && nextGroups[destinationGroupIndex]) {
+        nextGroups[destinationGroupIndex] = {
+          ...nextGroups[destinationGroupIndex],
+          fileIds: [...nextGroups[destinationGroupIndex].fileIds, fileId],
+        };
+      }
+
+      const normalized = normalizeGroups(nextGroups);
+
+      if (destinationGroupIndex !== null) {
+        setSelectedGroupIndex(destinationGroupIndex);
+      }
+
+      setSelectedFileId(fileId);
+      return normalized;
+    });
+  }
+
+  function beginDrag(fileId: string) {
+    setDragState({ fileId });
+  }
+
+  function endDrag() {
+    setDragState(null);
+  }
+
+  function handleDrop(destinationGroupIndex: number | null) {
+    if (!dragState) return;
+    moveFileToGroup(dragState.fileId, destinationGroupIndex);
+    setDragState(null);
   }
 
   async function saveDraft(): Promise<string> {
@@ -272,6 +435,18 @@ export default function PatchMapPage() {
           orderIndex: typeof group.orderIndex === "number" ? group.orderIndex : index,
           fileIds: group.fileIds,
         })),
+        walkthrough: walkthroughEnabled
+          ? {
+              title: walkthroughTitle || null,
+              introNotes: walkthroughIntro || null,
+              steps: walkthroughSteps.map((step, index) => ({
+                prFileId: step.prFileId,
+                title: step.title || null,
+                notes: step.notes || null,
+                orderIndex: index,
+              })),
+            }
+          : null,
       }),
     });
 
@@ -374,6 +549,12 @@ export default function PatchMapPage() {
         <div className="mt-2 flex flex-wrap gap-3">
           <Link href="/register" className="pm-button pm-button-secondary">
             Back to Register
+          </Link>
+          <Link href={`/patchmap/${pullRequestId}/walkthrough`} className="pm-button pm-button-primary">
+            {walkthroughEnabled ? "Edit Walkthrough" : "Create Walkthrough"}
+          </Link>
+          <Link href={`/patchmap/view/${pullRequestId}`} className="pm-button pm-button-secondary">
+            Open Reviewer View
           </Link>
           <Link href="/settings" className="pm-button pm-button-secondary">
             Settings
@@ -501,40 +682,188 @@ export default function PatchMapPage() {
 
         {groupingError ? <div className="pm-alert pm-alert-error">{groupingError}</div> : null}
 
-        {groups.length > 0 ? (
+        {groups.length > 0 || fileMap.size > 0 ? (
           <section className="pm-card p-4 md:p-5">
             <div className="pm-card-header">
               <div>
-                <h2 className="pm-card-title">Grouped PR Viewer + Reviewer Notes</h2>
-                <p className="pm-card-subtitle">Select a group and annotate file intent for review walkthroughs.</p>
+                <h2 className="pm-card-title">Grouped PR Viewer</h2>
+                <p className="pm-card-subtitle">
+                  Fix auto-grouping with drag and drop. Use the dedicated walkthrough builder when this PR needs a guided review.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link href={`/patchmap/${pullRequestId}/walkthrough`} className="pm-button pm-button-secondary">
+                  {walkthroughEnabled ? "Edit Walkthrough" : "Create Walkthrough"}
+                </Link>
+                <button className="pm-button pm-button-secondary" type="button" onClick={addGroup}>
+                  Add Group
+                </button>
               </div>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[290px_minmax(0,1fr)]">
               <aside className="rounded-xl border border-[var(--pm-border)] bg-[var(--pm-surface-muted)] p-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
-                  Auto Groups
+                  Review Groups
                 </div>
-                <div className="mt-3 grid gap-2">
+                <div className="mt-2 text-xs text-[var(--pm-text-soft)]">
+                  Drag files between groups or into ungrouped when the auto-grouping misses.
+                </div>
+
+                <div
+                  className={`mt-3 min-w-0 rounded-lg border border-dashed px-3 py-3 ${
+                    dragState ? "border-[var(--pm-brand-teal)] bg-white" : "border-[var(--pm-border)] bg-white/70"
+                  }`}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handleDrop(null)}
+                >
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pm-text-soft)]">
+                    Ungrouped Files
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {ungroupedFileIds.length > 0 ? (
+                      ungroupedFileIds.map((fileId) => {
+                        const file = fileMap.get(fileId);
+                        const active = selectedFileId === fileId;
+                        return (
+                          <button
+                            key={fileId}
+                            type="button"
+                            draggable
+                            onDragStart={() => beginDrag(fileId)}
+                            onDragEnd={endDrag}
+                            onClick={() => {
+                              setSelectedFileId(fileId);
+                              setSelectedGroupIndex(-1);
+                            }}
+                            className={`max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition ${
+                              active
+                                ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"
+                                : "border-[var(--pm-border)] bg-white text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
+                            }`}
+                            title={file?.filePath ?? fileId}
+                          >
+                            {file?.filePath ?? fileId}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="text-xs text-[var(--pm-text-soft)]">All files are currently assigned to a group.</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid gap-3">
                   {groups.map((group, index) => {
                     const isActive = index === selectedGroupIndex;
                     return (
-                      <button
+                      <div
                         key={`${group.title}-${index}`}
-                        type="button"
-                        onClick={() => {
-                          setSelectedGroupIndex(index);
-                          setSelectedFileId(group.fileIds[0] ?? null);
-                        }}
-                        className={`rounded-lg border px-3 py-2 text-left transition ${
+                        className={`min-w-0 rounded-lg border px-3 py-2 text-left transition ${
                           isActive
                             ? "border-[var(--pm-brand-teal)] bg-white shadow-sm"
                             : "border-[var(--pm-border)] bg-white/80 hover:border-[var(--pm-border-strong)]"
                         }`}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => handleDrop(index)}
                       >
-                        <div className="text-sm font-semibold text-[var(--pm-brand-navy)]">{group.title}</div>
-                        <div className="mt-0.5 text-xs text-[var(--pm-text-soft)]">{group.fileIds.length} file(s)</div>
-                      </button>
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedGroupIndex(index);
+                              setSelectedFileId(group.fileIds[0] ?? null);
+                            }}
+                            className="min-w-0 flex-1 text-left"
+                          >
+                            <div className="break-words text-sm font-semibold text-[var(--pm-brand-navy)]">
+                              {group.title}
+                            </div>
+                            <div className="mt-0.5 text-xs text-[var(--pm-text-soft)]">{group.fileIds.length} file(s)</div>
+                          </button>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              className="rounded border border-[var(--pm-border)] px-2 py-1 text-xs text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
+                              type="button"
+                              onClick={() => moveGroup(index, -1)}
+                              disabled={index === 0}
+                            >
+                              Up
+                            </button>
+                            <button
+                              className="rounded border border-[var(--pm-border)] px-2 py-1 text-xs text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
+                              type="button"
+                              onClick={() => moveGroup(index, 1)}
+                              disabled={index === groups.length - 1}
+                            >
+                              Down
+                            </button>
+                            <button
+                              className="rounded border border-[var(--pm-border)] px-2 py-1 text-xs text-[var(--pm-text-soft)] hover:border-red-300 hover:text-red-700"
+                              type="button"
+                              onClick={() => removeGroup(index)}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+
+                        <label className="pm-label mt-3" htmlFor={`group-title-${index}`}>
+                          Title
+                          <input
+                            id={`group-title-${index}`}
+                            className="pm-input"
+                            value={group.title}
+                            onChange={(event) => updateGroup(index, { title: event.target.value })}
+                          />
+                        </label>
+
+                        <label className="pm-label mt-2" htmlFor={`group-description-${index}`}>
+                          Description
+                          <textarea
+                            id={`group-description-${index}`}
+                            className="pm-textarea"
+                            rows={3}
+                            value={group.description ?? ""}
+                            onChange={(event) => updateGroup(index, { description: event.target.value })}
+                            placeholder="What should the reviewer focus on in this group?"
+                          />
+                        </label>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {group.fileIds.length > 0 ? (
+                            group.fileIds.map((fileId) => {
+                              const file = fileMap.get(fileId);
+                              const active = selectedFileId === fileId;
+                              return (
+                                <button
+                                  key={fileId}
+                                  type="button"
+                                  draggable
+                                  onDragStart={() => beginDrag(fileId)}
+                                  onDragEnd={endDrag}
+                                  onClick={() => {
+                                    setSelectedGroupIndex(index);
+                                    setSelectedFileId(fileId);
+                                  }}
+                                  className={`max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition ${
+                                    active
+                                      ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"
+                                      : "border-[var(--pm-border)] bg-white text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
+                                  }`}
+                                  title={file?.filePath ?? fileId}
+                                >
+                                  {file?.filePath ?? fileId}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="w-full rounded-lg border border-dashed border-[var(--pm-border)] px-3 py-2 text-xs text-[var(--pm-text-soft)]">
+                              Drop files here.
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -592,20 +921,27 @@ export default function PatchMapPage() {
                           )}
                         </div>
 
-                        <label className="pm-label" htmlFor="annotation">
-                          Reviewer Annotation (UI State)
-                          <textarea
-                            id="annotation"
-                            className="pm-textarea"
-                            value={annotations[selectedFileId] ?? ""}
-                            onChange={(event) => handleAnnotationChange(selectedFileId, event.target.value)}
-                            placeholder="Explain what this file changes and how reviewers should validate it."
-                            rows={5}
-                          />
-                        </label>
                       </div>
                     ) : null}
                   </>
+                ) : selectedFile ? (
+                  <div className="mt-2 grid gap-4">
+                    <div className="pm-diff">
+                      <div className="pm-diff-header">{selectedFile.filePath}</div>
+                      {selectedFile.patchText ? (
+                        <pre className="pm-diff-body">
+                          {selectedFile.patchText.split("\n").map((line, index) => (
+                            <span key={`${index}-${line}`} className={diffLineClass(line)}>
+                              {line}
+                            </span>
+                          ))}
+                        </pre>
+                      ) : (
+                        <div className="pm-diff-body">Diff content not available for this file.</div>
+                      )}
+                    </div>
+
+                  </div>
                 ) : (
                   <div className="pm-alert mt-2">No files in selected group.</div>
                 )}

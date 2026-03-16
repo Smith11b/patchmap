@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const result = await savePatchMapDraft(parsed);
+    const result = await savePatchMapDraft(parsed, auth.user.id);
     const response = savePatchMapDraftResponseSchema.parse(result);
 
     return NextResponse.json(response, { status: 200 });

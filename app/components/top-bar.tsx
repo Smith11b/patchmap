@@ -16,7 +16,7 @@ function isActive(pathname: string, href: string): boolean {
 
 export function TopBar() {
   const pathname = usePathname() ?? "/";
-  const isLogin = pathname === "/login";
+  const isPublicRoute = pathname === "/" || pathname === "/login";
 
   return (
     <header className="pm-topbar">
@@ -34,10 +34,16 @@ export function TopBar() {
         </Link>
 
         <nav className="pm-topbar-nav" aria-label="Primary">
-          {isLogin ? (
-            <Link href="/" className="pm-topbar-link pm-topbar-link-active">
-              Home
-            </Link>
+          {isPublicRoute ? (
+            pathname === "/login" ? (
+              <Link href="/" className="pm-topbar-link">
+                Home
+              </Link>
+            ) : (
+              <Link href="/login" className="pm-button pm-button-secondary pm-topbar-cta">
+                Sign In
+              </Link>
+            )
           ) : (
             navItems.map((item) => (
               <Link

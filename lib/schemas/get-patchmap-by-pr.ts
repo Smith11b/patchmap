@@ -37,6 +37,22 @@ export const getPatchMapByPrResponseSchema = z.object({
       fileIds: z.array(z.string().uuid()),
     })
   ),
+  walkthrough: z
+    .object({
+      id: z.string().uuid(),
+      title: z.string().nullable().optional(),
+      introNotes: z.string().nullable().optional(),
+      steps: z.array(
+        z.object({
+          id: z.string().uuid(),
+          prFileId: z.string().uuid(),
+          title: z.string().nullable().optional(),
+          notes: z.string().nullable().optional(),
+          orderIndex: z.number().int(),
+        })
+      ),
+    })
+    .nullable(),
 });
 
 export type GetPatchMapByPrQuery = z.infer<typeof getPatchMapByPrQuerySchema>;
