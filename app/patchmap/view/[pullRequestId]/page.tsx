@@ -92,6 +92,7 @@ export default function PatchMapReadOnlyPage() {
   const selectedFile = selectedFileId ? fileMap.get(selectedFileId) : null;
   const currentStep = walkthrough?.steps[currentStepIndex] ?? null;
   const walkthroughEnabled = Boolean(walkthrough?.steps.length);
+  const activeWalkthrough = walkthrough && walkthrough.steps.length > 0 ? walkthrough : null;
 
   function findGroupIndexForFile(fileId: string, candidateGroups: SuggestedGroup[]) {
     return candidateGroups.findIndex((group) => group.fileIds.includes(fileId));
@@ -239,7 +240,7 @@ export default function PatchMapReadOnlyPage() {
         </article>
       ) : null}
 
-      {walkthroughEnabled ? (
+      {activeWalkthrough ? (
         <section className="pm-card mt-6 p-4 md:p-5">
           <div className="pm-card-header">
             <div>
@@ -249,12 +250,12 @@ export default function PatchMapReadOnlyPage() {
               </p>
             </div>
             <span className="pm-pill">
-              Step {currentStepIndex + 1} of {walkthrough.steps.length}
+              Step {currentStepIndex + 1} of {activeWalkthrough.steps.length}
             </span>
           </div>
 
-          {walkthrough.introNotes ? (
-            <div className="pm-alert">{walkthrough.introNotes}</div>
+          {activeWalkthrough.introNotes ? (
+            <div className="pm-alert">{activeWalkthrough.introNotes}</div>
           ) : null}
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -263,7 +264,7 @@ export default function PatchMapReadOnlyPage() {
                 Walkthrough Steps
               </div>
               <div className="mt-3 grid gap-2">
-                {walkthrough.steps.map((step, index) => {
+                {activeWalkthrough.steps.map((step, index) => {
                   const file = fileMap.get(step.prFileId);
                   const isActive = index === currentStepIndex;
                   return (
@@ -315,7 +316,7 @@ export default function PatchMapReadOnlyPage() {
                     className="pm-button pm-button-primary"
                     type="button"
                     onClick={() => goToStep(currentStepIndex + 1)}
-                    disabled={currentStepIndex >= walkthrough.steps.length - 1}
+                    disabled={currentStepIndex >= activeWalkthrough.steps.length - 1}
                   >
                     Next
                   </button>
