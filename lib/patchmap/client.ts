@@ -11,7 +11,11 @@ async function readJson<T>(response: Response, fallbackMessage: string): Promise
   const data = (await response.json()) as T | { error?: string };
 
   if (!response.ok) {
-    throw new Error(("error" in data && data.error) || fallbackMessage);
+    const errorMessage =
+      typeof data === "object" && data !== null && "error" in data && typeof data.error === "string"
+        ? data.error
+        : fallbackMessage;
+    throw new Error(errorMessage);
   }
 
   return data as T;
