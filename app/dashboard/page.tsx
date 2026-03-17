@@ -20,8 +20,12 @@ type RecentPatchMapItem = {
     pullRequestId: string;
     versionNumber: number;
     status: "draft" | "published";
+    reviewRequestedAt?: string | null;
     createdAt: string;
     updatedAt: string;
+  };
+  review: {
+    currentUserStatus: "not_started" | "in_progress" | "approved";
   };
   repository: {
     id: string;
@@ -213,12 +217,26 @@ export default function DashboardPage() {
                       <p className="mt-1 text-xs text-[var(--pm-text-soft)]">
                         Updated {new Date(item.patchmap.updatedAt).toLocaleString()} - {item.patchmap.status}
                       </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="pm-pill">
+                          {item.patchmap.status === "published" ? "Review Requested" : "Draft"}
+                        </span>
+                        <span className="pm-pill">
+                          Your Review: {item.review.currentUserStatus.replace("_", " ")}
+                        </span>
+                      </div>
                       <div className="mt-3 flex flex-wrap gap-2">
+                        <Link
+                          href={`/patchmap/${item.pullRequest.id}`}
+                          className="pm-button pm-button-primary"
+                        >
+                          Edit PatchMap
+                        </Link>
                         <Link
                           href={`/patchmap/view/${item.pullRequest.id}`}
                           className="pm-button pm-button-secondary"
                         >
-                          Open Read-Only View
+                          Open Review
                         </Link>
                         <a href={item.pullRequest.url} target="_blank" rel="noreferrer" className="pm-button pm-button-secondary">
                           Open PR

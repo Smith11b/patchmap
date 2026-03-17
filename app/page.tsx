@@ -104,9 +104,14 @@ export default function Home() {
       <footer className="pm-landing-footer">
         <div>Patchmap</div>
         <div>Structured pull request walkthroughs for software teams.</div>
-        <Link href="/login" className="pm-topbar-link">
-          Sign In
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/privacy" className="pm-topbar-link">
+            Privacy Policy
+          </Link>
+          <Link href="/login" className="pm-topbar-link">
+            Sign In
+          </Link>
+        </div>
       </footer>
     </main>
   );

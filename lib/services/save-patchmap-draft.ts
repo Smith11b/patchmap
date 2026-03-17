@@ -54,10 +54,22 @@ export async function savePatchMapDraft(
     | null = null;
 
   if (existingPatchmapId) {
+    const publishedPatch =
+      status === "published"
+        ? {
+            published_at: new Date().toISOString(),
+            published_by_user_id: actorUserId ?? null,
+            review_requested_at: new Date().toISOString(),
+            review_requested_by_user_id: actorUserId ?? null,
+          }
+        : {};
+
     const { data, error } = await supabase
       .from("patchmaps")
       .update({
         status,
+        updated_by_user_id: actorUserId ?? null,
+        ...publishedPatch,
       })
       .eq("id", existingPatchmapId)
       .select("id, pull_request_id, version_number, status")
@@ -71,12 +83,25 @@ export async function savePatchMapDraft(
 
     patchmapRow = data;
   } else {
+    const publishedPatch =
+      status === "published"
+        ? {
+            published_at: new Date().toISOString(),
+            published_by_user_id: actorUserId ?? null,
+            review_requested_at: new Date().toISOString(),
+            review_requested_by_user_id: actorUserId ?? null,
+          }
+        : {};
+
     const { data, error } = await supabase
       .from("patchmaps")
       .insert({
         pull_request_id: input.pullRequestId,
         version_number: requestedVersionNumber,
         status,
+        created_by_user_id: actorUserId ?? null,
+        updated_by_user_id: actorUserId ?? null,
+        ...publishedPatch,
       })
       .select("id, pull_request_id, version_number, status")
       .single();

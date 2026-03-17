@@ -23,8 +23,23 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const themeInitScript = `
+    (() => {
+      try {
+        const stored = window.localStorage.getItem("pm-theme");
+        const theme = stored === "light" || stored === "dark"
+          ? stored
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+      } catch {}
+    })();
+  `;
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <TopBar />
         {children}

@@ -46,6 +46,7 @@ export default function PatchMapWalkthroughBuilderPage() {
   const [testNotes, setTestNotes] = useState("");
   const [demoable, setDemoable] = useState<"" | "yes" | "no">("");
   const [demoNotes, setDemoNotes] = useState("");
+  const canEdit = patchmap?.permissions.canEdit ?? true;
 
   const selectedStep = walkthroughSteps[selectedStepIndex] ?? null;
   const selectedFile = selectedStep ? fileMap.get(selectedStep.prFileId) : null;
@@ -221,6 +222,28 @@ export default function PatchMapWalkthroughBuilderPage() {
     );
   }
 
+  if (!canEdit) {
+    return (
+      <main className="pm-shell">
+        <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
+          <div className="pm-context-kicker">Walkthrough Builder Locked</div>
+          <h1 className="pm-hero-title mt-2">This walkthrough is read-only for you</h1>
+          <p className="pm-hero-subtitle pm-section-lead">
+            Only the PatchMap author or the workspace owner can edit the walkthrough. You can still view the review experience.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Link href={`/patchmap/view/${pullRequestId}`} className="pm-button pm-button-primary">
+              Open Review
+            </Link>
+            <Link href={`/patchmap/view/${pullRequestId}/walkthrough`} className="pm-button pm-button-secondary">
+              Open Walkthrough
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="pm-shell">
       <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
@@ -234,7 +257,7 @@ export default function PatchMapWalkthroughBuilderPage() {
             Back to PatchMap
           </Link>
           <Link href={`/patchmap/view/${pullRequestId}`} className="pm-button pm-button-secondary">
-            Open Reviewer View
+            Open Review
           </Link>
           <button
             className="pm-button pm-button-primary"

@@ -9,6 +9,7 @@ type GroupFileListProps = {
   selectedFileId: string | null;
   onSelect: (fileId: string) => void;
   draggable?: boolean;
+  fullWidth?: boolean;
   onDragStart?: (fileId: string) => void;
   onDragEnd?: () => void;
   emptyMessage?: string;
@@ -21,6 +22,7 @@ export function GroupFileList({
   selectedFileId,
   onSelect,
   draggable = false,
+  fullWidth = false,
   onDragStart,
   onDragEnd,
   emptyMessage,
@@ -35,7 +37,7 @@ export function GroupFileList({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={fullWidth ? "grid gap-2" : "flex flex-wrap gap-2"}>
       {fileIds.map((fileId) => {
         const file = fileMap.get(fileId);
         return (
@@ -45,6 +47,7 @@ export function GroupFileList({
             title={file?.filePath ?? fileId}
             active={selectedFileId === fileId}
             draggable={draggable}
+            fullWidth={fullWidth}
             onDragStart={onDragStart ? () => onDragStart(fileId) : undefined}
             onDragEnd={onDragEnd}
             onClick={() => onSelect(fileId)}

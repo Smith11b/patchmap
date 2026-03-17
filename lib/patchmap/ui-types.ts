@@ -57,14 +57,32 @@ export type PatchMapGroupRecord = {
   fileIds: string[];
 };
 
+export type PatchMapReviewStatus = "not_started" | "in_progress" | "approved";
+
 export type PatchMapResponse = {
   patchmap: {
     id: string;
     pullRequestId: string;
     versionNumber: number;
     status: "draft" | "published";
+    createdByUserId?: string | null;
+    updatedByUserId?: string | null;
+    publishedAt?: string | null;
+    publishedByUserId?: string | null;
+    reviewRequestedAt?: string | null;
+    reviewRequestedByUserId?: string | null;
     createdAt: string;
     updatedAt: string;
+  };
+  permissions: {
+    canEdit: boolean;
+    isAuthor: boolean;
+    isWorkspaceOwner: boolean;
+  };
+  review: {
+    currentUserStatus: PatchMapReviewStatus;
+    currentUserStartedAt?: string | null;
+    currentUserApprovedAt?: string | null;
   };
   summary: PatchMapSummary;
   groups: PatchMapGroupRecord[];
@@ -86,6 +104,13 @@ export type SaveDraftResponse = {
 export type GenerateMarkdownResponse = {
   patchmapId: string;
   markdown: string;
+};
+
+export type UpdateReviewStatusResponse = {
+  patchmapId: string;
+  status: PatchMapReviewStatus;
+  startedAt?: string | null;
+  approvedAt?: string | null;
 };
 
 export type WalkthroughStepDraft = {

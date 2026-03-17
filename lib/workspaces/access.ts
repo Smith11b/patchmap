@@ -1,5 +1,10 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+export type WorkspaceMembership = {
+  workspace_id: string;
+  role: string;
+};
+
 export async function assertWorkspaceMembership(userId: string, workspaceId: string) {
   const supabase = createAdminSupabaseClient();
 
@@ -19,6 +24,57 @@ export async function assertWorkspaceMembership(userId: string, workspaceId: str
   }
 
   return data;
+}
+
+export async function getLatestPatchmapForPullRequest(
+  pullRequestId: string
+): Promise<{ id: string; created_by_user_id: string | null } | null> {
+  const supabase = createAdminSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("patchmaps")
+    .select("id, created_by_user_id, version_number, created_at")
+    .eq("pull_request_id", pullRequestId)
+    .order("version_number", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to resolve latest patchmap: ${error.message}`);
+  }
+
+  return data;
+}
+
+export async function getPatchmapAuthorship(
+  patchmapId: string
+): Promise<{ id: string; created_by_user_id: string | null } | null> {
+  const supabase = createAdminSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("patchmaps")
+    .select("id, created_by_user_id")
+    .eq("id", patchmapId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load patchmap authorship: ${error.message}`);
+  }
+
+  return data;
+}
+
+export function canUserEditPatchmap(
+  membership: WorkspaceMembership | null,
+  userId: string,
+  patchmapAuthorUserId: string | null
+): boolean {
+  if (!membership) {
+    return false;
+  }
+
+  return membership.role === "owner" || patchmapAuthorUserId === userId;
 }
 
 export async function getWorkspaceIdForPullRequest(pullRequestId: string): Promise<string | null> {

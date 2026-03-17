@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { generateAndStorePatchMapMarkdown } from "@/lib/services/generate-patchmap-markdown";
 import { requireApiUser } from "@/lib/auth/require-api-user";
-import { assertWorkspaceMembership, getWorkspaceIdForPatchmap } from "@/lib/workspaces/access";
+import {
+  assertWorkspaceMembership,
+  canUserEditPatchmap,
+  getPatchmapAuthorship,
+  getWorkspaceIdForPatchmap,
+} from "@/lib/workspaces/access";
 
 const generatePatchMapMarkdownSchema = z.object({
   patchmapId: z.string().uuid(),
@@ -26,6 +31,14 @@ export async function POST(request: Request) {
     const membership = await assertWorkspaceMembership(auth.user.id, workspaceId);
     if (!membership) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const patchmap = await getPatchmapAuthorship(parsed.patchmapId);
+    if (!canUserEditPatchmap(membership, auth.user.id, patchmap?.created_by_user_id ?? null)) {
+      return NextResponse.json(
+        { error: "Only the patchmap author or workspace owner can generate markdown" },
+        { status: 403 }
+      );
     }
 
     const markdown = await generateAndStorePatchMapMarkdown(parsed.patchmapId);

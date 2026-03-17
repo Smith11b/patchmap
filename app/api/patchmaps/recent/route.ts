@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const items = await listRecentPatchMapsByWorkspace(parsed.workspaceId, parsed.limit ?? 50);
+    const items = await listRecentPatchMapsByWorkspace(parsed.workspaceId, auth.user.id, parsed.limit ?? 50);
 
     return NextResponse.json({ workspaceId: parsed.workspaceId, items }, { status: 200 });
   } catch (error) {

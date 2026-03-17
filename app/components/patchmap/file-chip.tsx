@@ -5,6 +5,7 @@ type FileChipProps = {
   active?: boolean;
   title?: string;
   draggable?: boolean;
+  fullWidth?: boolean;
   onClick?: () => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -16,6 +17,7 @@ export function FileChip({
   active = false,
   title,
   draggable = false,
+  fullWidth = false,
   onClick,
   onDragStart,
   onDragEnd,
@@ -28,15 +30,17 @@ export function FileChip({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      className={`max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition ${
+      className={`${fullWidth ? "w-full" : "max-w-full"} min-w-0 rounded-2xl border px-3 py-1 text-left text-xs font-medium leading-5 transition ${
         active
           ? "border-[var(--pm-brand-teal)] bg-[rgba(20,151,154,0.12)] text-[var(--pm-brand-navy)]"
           : "border-[var(--pm-border)] bg-white text-[var(--pm-text-soft)] hover:border-[var(--pm-border-strong)]"
       }`}
       title={title ?? label}
     >
-      {prefix ? `${prefix} ` : ""}
-      {label}
+      <span className="block max-w-full break-all whitespace-normal">
+        {prefix ? `${prefix} ` : ""}
+        {label}
+      </span>
     </button>
   );
 }

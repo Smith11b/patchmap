@@ -6,8 +6,12 @@ export type RecentPatchMapItem = {
     pullRequestId: string;
     versionNumber: number;
     status: "draft" | "published";
+    reviewRequestedAt?: string | null;
     createdAt: string;
     updatedAt: string;
+  };
+  review: {
+    currentUserStatus: "not_started" | "in_progress" | "approved";
   };
   repository: {
     id: string;
@@ -26,6 +30,7 @@ export type RecentPatchMapItem = {
 
 export async function listRecentPatchMapsByWorkspace(
   workspaceId: string,
+  userId: string,
   limit = 50
 ): Promise<RecentPatchMapItem[]> {
   const supabase = createAdminSupabaseClient();
@@ -75,7 +80,7 @@ export async function listRecentPatchMapsByWorkspace(
 
   const { data: patchmaps, error: patchmapsError } = await supabase
     .from("patchmaps")
-    .select("id, pull_request_id, version_number, status, created_at, updated_at")
+    .select("id, pull_request_id, version_number, status, review_requested_at, created_at, updated_at")
     .in("pull_request_id", pullRequestIds)
     .order("updated_at", { ascending: false })
     .limit(1000);
@@ -98,6 +103,21 @@ export async function listRecentPatchMapsByWorkspace(
     }
   }
 
+  const patchmapIds = (patchmaps ?? []).map((patchmap) => patchmap.id);
+  const { data: reviewRows, error: reviewError } = await supabase
+    .from("patchmap_review_states")
+    .select("patchmap_id, status")
+    .eq("user_id", userId)
+    .in("patchmap_id", patchmapIds);
+
+  if (reviewError && !reviewError.message.includes("patchmap_review_states")) {
+    throw new Error(`Failed to load patchmap review states: ${reviewError.message}`);
+  }
+
+  const reviewByPatchmapId = new Map(
+    (reviewRows ?? []).map((row) => [row.patchmap_id, row.status] as const)
+  );
+
   return normalizedPullRequests
     .map((pr) => {
       const patchmap = latestByPullRequest.get(pr.id);
@@ -109,8 +129,12 @@ export async function listRecentPatchMapsByWorkspace(
           pullRequestId: patchmap.pull_request_id,
           versionNumber: patchmap.version_number,
           status: patchmap.status,
+          reviewRequestedAt: patchmap.review_requested_at,
           createdAt: patchmap.created_at,
           updatedAt: patchmap.updated_at,
+        },
+        review: {
+          currentUserStatus: reviewByPatchmapId.get(patchmap.id) ?? "not_started",
         },
         repository: {
           id: pr.repository.id,

@@ -6,7 +6,13 @@ import {
 } from "@/lib/schemas/save-patchmap-draft";
 import { savePatchMapDraft } from "@/lib/services/save-patchmap-draft";
 import { requireApiUser } from "@/lib/auth/require-api-user";
-import { assertWorkspaceMembership, getWorkspaceIdForPullRequest } from "@/lib/workspaces/access";
+import {
+  assertWorkspaceMembership,
+  canUserEditPatchmap,
+  getPatchmapAuthorship,
+  getLatestPatchmapForPullRequest,
+  getWorkspaceIdForPullRequest,
+} from "@/lib/workspaces/access";
 
 export async function POST(request: Request) {
   try {
@@ -26,6 +32,17 @@ export async function POST(request: Request) {
     const membership = await assertWorkspaceMembership(auth.user.id, workspaceId);
     if (!membership) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const authoringPatchmap = parsed.patchmap?.id
+      ? await getPatchmapAuthorship(parsed.patchmap.id)
+      : await getLatestPatchmapForPullRequest(parsed.pullRequestId);
+
+    if (
+      authoringPatchmap &&
+      !canUserEditPatchmap(membership, auth.user.id, authoringPatchmap.created_by_user_id)
+    ) {
+      return NextResponse.json({ error: "Only the patchmap author or workspace owner can edit this PatchMap" }, { status: 403 });
     }
 
     const result = await savePatchMapDraft(parsed, auth.user.id);

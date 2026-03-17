@@ -13,7 +13,8 @@ function isMissingWalkthroughTableError(message?: string) {
 }
 
 export async function getPatchMapByPr(
-  input: GetPatchMapByPrQuery
+  input: GetPatchMapByPrQuery,
+  actorUserId?: string
 ): Promise<GetPatchMapByPrResponse | null> {
   const supabase = createAdminSupabaseClient();
 
@@ -24,6 +25,12 @@ export async function getPatchMapByPr(
       pull_request_id,
       version_number,
       status,
+      created_by_user_id,
+      updated_by_user_id,
+      published_at,
+      published_by_user_id,
+      review_requested_at,
+      review_requested_by_user_id,
       created_at,
       updated_at
     `)
@@ -155,15 +162,54 @@ export async function getPatchMapByPr(
     };
   }
 
+  let reviewState: GetPatchMapByPrResponse["review"] = {
+    currentUserStatus: "not_started",
+    currentUserStartedAt: null,
+    currentUserApprovedAt: null,
+  };
+
+  if (actorUserId) {
+    const { data: reviewRow, error: reviewError } = await supabase
+      .from("patchmap_review_states")
+      .select("status, started_at, approved_at")
+      .eq("patchmap_id", patchmapId)
+      .eq("user_id", actorUserId)
+      .maybeSingle();
+
+    if (reviewError && !reviewError.message.includes("patchmap_review_states")) {
+      throw new Error(`Failed to load patchmap review state: ${reviewError.message}`);
+    }
+
+    if (reviewRow) {
+      reviewState = {
+        currentUserStatus: reviewRow.status,
+        currentUserStartedAt: reviewRow.started_at,
+        currentUserApprovedAt: reviewRow.approved_at,
+      };
+    }
+  }
+
   return {
     patchmap: {
       id: patchmapRow.id,
       pullRequestId: patchmapRow.pull_request_id,
       versionNumber: patchmapRow.version_number,
       status: patchmapRow.status,
+      createdByUserId: patchmapRow.created_by_user_id,
+      updatedByUserId: patchmapRow.updated_by_user_id,
+      publishedAt: patchmapRow.published_at,
+      publishedByUserId: patchmapRow.published_by_user_id,
+      reviewRequestedAt: patchmapRow.review_requested_at,
+      reviewRequestedByUserId: patchmapRow.review_requested_by_user_id,
       createdAt: patchmapRow.created_at,
       updatedAt: patchmapRow.updated_at,
     },
+    permissions: {
+      canEdit: false,
+      isAuthor: false,
+      isWorkspaceOwner: false,
+    },
+    review: reviewState,
     summary: summaryRow
       ? {
           id: summaryRow.id,

@@ -11,8 +11,24 @@ export const getPatchMapByPrResponseSchema = z.object({
     pullRequestId: z.string().uuid(),
     versionNumber: z.number().int(),
     status: patchmapStatusSchema,
+    createdByUserId: z.string().uuid().nullable().optional(),
+    updatedByUserId: z.string().uuid().nullable().optional(),
+    publishedAt: z.string().nullable().optional(),
+    publishedByUserId: z.string().uuid().nullable().optional(),
+    reviewRequestedAt: z.string().nullable().optional(),
+    reviewRequestedByUserId: z.string().uuid().nullable().optional(),
     createdAt: z.string(),
     updatedAt: z.string(),
+  }),
+  permissions: z.object({
+    canEdit: z.boolean(),
+    isAuthor: z.boolean(),
+    isWorkspaceOwner: z.boolean(),
+  }),
+  review: z.object({
+    currentUserStatus: z.enum(["not_started", "in_progress", "approved"]),
+    currentUserStartedAt: z.string().nullable().optional(),
+    currentUserApprovedAt: z.string().nullable().optional(),
   }),
   summary: z
     .object({

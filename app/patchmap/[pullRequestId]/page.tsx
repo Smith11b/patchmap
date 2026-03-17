@@ -64,6 +64,7 @@ export default function PatchMapPage() {
 
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isGeneratingMarkdown, setIsGeneratingMarkdown] = useState(false);
+  const canEdit = patchmap?.permissions.canEdit ?? true;
 
   useEffect(() => {
     setGroupingError(suggestionsError);
@@ -253,17 +254,17 @@ export default function PatchMapPage() {
     setDragState(null);
   }
 
-  function buildDraftPayload(): SaveDraftPayload {
+  function buildDraftPayload(statusOverride?: "draft" | "published"): SaveDraftPayload {
     return {
       pullRequestId,
       patchmap: patchmapId
         ? {
             id: patchmapId,
-            status: patchmapStatus,
+            status: statusOverride ?? patchmapStatus,
             versionNumber: patchmapVersion,
           }
         : {
-            status: "draft",
+            status: statusOverride ?? "draft",
             versionNumber: 1,
           },
       summary: {
@@ -295,8 +296,8 @@ export default function PatchMapPage() {
     };
   }
 
-  async function persistDraft(): Promise<string> {
-    const saved = await saveDraft(buildDraftPayload());
+  async function persistDraft(statusOverride?: "draft" | "published"): Promise<string> {
+    const saved = await saveDraft(buildDraftPayload(statusOverride));
     setPatchmapId(saved.patchmap.id);
     setPatchmapStatus(saved.patchmap.status);
     setPatchmapVersion(saved.patchmap.versionNumber);
@@ -328,6 +329,18 @@ export default function PatchMapPage() {
       setDraftError(error instanceof Error ? error.message : "Failed to generate markdown");
     } finally {
       setIsGeneratingMarkdown(false);
+    }
+  }
+
+  async function handleRequestReview() {
+    try {
+      setIsSavingDraft(true);
+      setDraftError(null);
+      await persistDraft("published");
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : "Failed to request review");
+    } finally {
+      setIsSavingDraft(false);
     }
   }
 
@@ -364,6 +377,28 @@ export default function PatchMapPage() {
     );
   }
 
+  if (!canEdit) {
+    return (
+      <main className="pm-shell">
+        <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
+          <div className="pm-context-kicker">Author View Locked</div>
+          <h1 className="pm-hero-title mt-2">This PatchMap is read-only for you</h1>
+          <p className="pm-hero-subtitle pm-section-lead">
+            Only the PatchMap author or the workspace owner can edit this draft. You can still use the review view and walkthrough.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Link href={`/patchmap/view/${pullRequestId}`} className="pm-button pm-button-primary">
+              Open Review
+            </Link>
+            <Link href="/dashboard" className="pm-button pm-button-secondary">
+              Back to Dashboard
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="pm-shell">
       <section className="pm-page-intro pm-card px-6 py-6 md:px-7 md:py-7">
@@ -380,7 +415,7 @@ export default function PatchMapPage() {
             {walkthroughEnabled ? "Edit Walkthrough" : "Create Walkthrough"}
           </Link>
           <Link href={`/patchmap/view/${pullRequestId}`} className="pm-button pm-button-secondary">
-            Open Reviewer View
+            Open Review
           </Link>
           <Link href="/settings" className="pm-button pm-button-secondary">
             Settings
@@ -514,6 +549,14 @@ export default function PatchMapPage() {
               {isGeneratingMarkdown ? "Generating..." : "Generate Markdown"}
             </button>
             <button
+              className="pm-button pm-button-primary"
+              type="button"
+              onClick={handleRequestReview}
+              disabled={isSavingDraft || isGeneratingMarkdown}
+            >
+              {patchmapStatus === "published" ? "Review Requested" : "Request Review"}
+            </button>
+            <button
               className="pm-button pm-button-secondary"
               type="button"
               onClick={handleCopyMarkdown}
@@ -522,6 +565,12 @@ export default function PatchMapPage() {
               Copy Markdown
             </button>
           </div>
+
+          {patchmapStatus === "published" ? (
+            <div className="pm-alert pm-alert-success mt-2">
+              This PatchMap has been published and is ready for reviewers.
+            </div>
+          ) : null}
 
           {draftError ? <div className="pm-alert pm-alert-error mt-2">{draftError}</div> : null}
 
@@ -590,6 +639,7 @@ export default function PatchMapPage() {
                         fileMap={fileMap}
                         selectedFileId={selectedFileId}
                         draggable
+                        fullWidth
                         onDragStart={beginDrag}
                         onDragEnd={endDrag}
                         onSelect={(fileId) => {
@@ -686,6 +736,7 @@ export default function PatchMapPage() {
                             fileMap={fileMap}
                             selectedFileId={selectedFileId}
                             draggable
+                            fullWidth
                             onDragStart={beginDrag}
                             onDragEnd={endDrag}
                             onSelect={(fileId) => {

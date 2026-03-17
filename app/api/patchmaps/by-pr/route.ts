@@ -6,7 +6,12 @@ import {
 } from "@/lib/schemas/get-patchmap-by-pr";
 import { getPatchMapByPr } from "@/lib/services/get-patchmap-by-pr";
 import { requireApiUser } from "@/lib/auth/require-api-user";
-import { assertWorkspaceMembership, getWorkspaceIdForPullRequest } from "@/lib/workspaces/access";
+import {
+  assertWorkspaceMembership,
+  canUserEditPatchmap,
+  getLatestPatchmapForPullRequest,
+  getWorkspaceIdForPullRequest,
+} from "@/lib/workspaces/access";
 
 export async function GET(request: Request) {
   try {
@@ -31,7 +36,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const result = await getPatchMapByPr(parsed);
+    const result = await getPatchMapByPr(parsed, auth.user.id);
 
     if (!result) {
       return NextResponse.json(
@@ -39,6 +44,17 @@ export async function GET(request: Request) {
         { status: 404 }
       );
     }
+
+    const latestPatchmap = await getLatestPatchmapForPullRequest(parsed.pullRequestId);
+    result.permissions = {
+      canEdit: canUserEditPatchmap(
+        membership,
+        auth.user.id,
+        latestPatchmap?.created_by_user_id ?? null
+      ),
+      isAuthor: latestPatchmap?.created_by_user_id === auth.user.id,
+      isWorkspaceOwner: membership.role === "owner",
+    };
 
     const response = getPatchMapByPrResponseSchema.parse(result);
 
