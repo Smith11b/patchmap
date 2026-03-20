@@ -8,6 +8,17 @@ import { supabase } from "@/lib/supabase";
 function LoginContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
+  const nextUrl = new URL(next, "http://patchmap.local");
+
+  searchParams.forEach((value, key) => {
+    if (key === "next") {
+      return;
+    }
+
+    nextUrl.searchParams.set(key, value);
+  });
+
+  const resolvedNext = `${nextUrl.pathname}${nextUrl.search}`;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -19,7 +30,7 @@ function LoginContent() {
     if (typeof window === "undefined") return undefined;
 
     const callbackUrl = new URL("/auth/callback", window.location.origin);
-    callbackUrl.searchParams.set("next", next);
+    callbackUrl.searchParams.set("next", resolvedNext);
     return callbackUrl.toString();
   }
 
@@ -58,7 +69,7 @@ function LoginContent() {
     if (signInError) {
       setError(signInError.message);
     } else if (typeof window !== "undefined") {
-      window.location.href = next;
+      window.location.href = resolvedNext;
     }
 
     setBusy(false);
@@ -82,7 +93,7 @@ function LoginContent() {
     if (signUpError) {
       setError(signUpError.message);
     } else if (data.session && typeof window !== "undefined") {
-      window.location.href = next;
+      window.location.href = resolvedNext;
     } else {
       setStatus("Account created. Check your email to verify the address before signing in.");
     }
