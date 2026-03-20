@@ -12,7 +12,7 @@ if (!supabaseAnonKey) {
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
 }
 
-const PUBLIC_PATHS = new Set(["/", "/login", "/auth/callback"]);
+const PUBLIC_PATHS = new Set(["/", "/login", "/auth/callback", "/auth/github/setup"]);
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({
@@ -40,12 +40,15 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isPublicPath = PUBLIC_PATHS.has(pathname) || pathname.startsWith("/auth/callback");
+  const isPublicPath =
+    PUBLIC_PATHS.has(pathname) ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/auth/github/setup");
 
   if (!user && !isPublicPath && !pathname.startsWith("/api/")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("next", pathname);
+    redirectUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(redirectUrl);
   }
 
