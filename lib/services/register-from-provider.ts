@@ -1,9 +1,11 @@
 import { getGitHubPullRequestData } from "@/lib/providers/github";
+import { createGitHubInstallationAccessToken } from "@/lib/providers/github-app";
 import {
   getGitLabPullRequestData,
   splitGitLabProjectPath,
 } from "@/lib/providers/gitlab";
 import { RegisterFromProviderRequest } from "@/lib/schemas/register-from-provider";
+import { getMatchingGitHubAppInstallationForUser } from "@/lib/services/github-app-installations";
 import { getUserProviderToken } from "@/lib/services/user-provider-credentials";
 import { registerPullRequest } from "@/lib/services/register-pull-request";
 
@@ -19,17 +21,38 @@ export async function registerFromProvider(params: {
 
   switch (input.provider) {
     case "github": {
-      const userToken = await getUserProviderToken({ userId, provider: "github" });
+      let githubToken: string | null = null;
+      const installation = await getMatchingGitHubAppInstallationForUser({
+        userId,
+        owner: input.owner,
+      });
 
-      if (!userToken && !allowProviderTokenFallback()) {
-        throw new Error("Missing GitHub credential. Add a token in profile settings.");
+      if (installation) {
+        try {
+          githubToken = await createGitHubInstallationAccessToken(
+            installation.githubInstallationId
+          );
+        } catch (error) {
+          console.warn("Failed to create GitHub installation token, falling back to PAT", error);
+        }
+      }
+
+      const userToken = await getUserProviderToken({ userId, provider: "github" });
+      githubToken = githubToken ?? userToken;
+
+      if (!githubToken && !allowProviderTokenFallback()) {
+        throw new Error(
+          installation
+            ? "Missing GitHub access. Reconnect the GitHub App or add a personal token in Settings."
+            : "Missing GitHub access. Connect the GitHub App for this owner or add a personal token in Settings."
+        );
       }
 
       const providerData = await getGitHubPullRequestData({
         owner: input.owner,
         repo: input.name,
         prNumber: input.prNumber,
-        token: userToken,
+        token: githubToken,
       });
 
       return registerPullRequest({

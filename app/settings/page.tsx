@@ -9,6 +9,17 @@ type CredentialStatus = {
   gitlab: { provider: "gitlab"; updated_at: string } | null;
 };
 
+type GitHubAppInstallation = {
+  id: string;
+  githubInstallationId: number;
+  accountLogin: string;
+  accountType: string;
+  targetId: number | null;
+  repositoriesSelection: string | null;
+  installedAt: string;
+  updatedAt: string;
+};
+
 type WorkspaceSummary = {
   id: string;
   name: string;
@@ -21,6 +32,7 @@ type WorkspaceSummary = {
 
 export default function SettingsPage() {
   const [status, setStatus] = useState<CredentialStatus | null>(null);
+  const [githubInstallations, setGitHubInstallations] = useState<GitHubAppInstallation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
@@ -38,6 +50,7 @@ export default function SettingsPage() {
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
   const githubConnected = Boolean(status?.github);
   const gitlabConnected = Boolean(status?.gitlab);
+  const hasGitHubAppAccess = githubInstallations.length > 0;
 
   async function loadStatus() {
     setError(null);
@@ -50,6 +63,19 @@ export default function SettingsPage() {
     }
 
     setStatus(data.credentials as CredentialStatus);
+  }
+
+  async function loadGitHubInstallations() {
+    setError(null);
+    const response = await fetch("/api/integrations/github/installations");
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(typeof data?.error === "string" ? data.error : "Failed to load GitHub installations");
+      return;
+    }
+
+    setGitHubInstallations((data.installations ?? []) as GitHubAppInstallation[]);
   }
 
   async function loadWorkspaces() {
@@ -77,7 +103,31 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    void Promise.all([loadStatus(), loadWorkspaces()]);
+    void Promise.all([loadStatus(), loadWorkspaces(), loadGitHubInstallations()]);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const githubAppStatus = params.get("github_app");
+    const message = params.get("message");
+
+    if (!githubAppStatus) {
+      return;
+    }
+
+    if (githubAppStatus === "error") {
+      setError(message ?? "Failed to connect GitHub App.");
+    }
+
+    if (githubAppStatus === "connected" || githubAppStatus === "updated") {
+      void loadGitHubInstallations();
+    }
+
+    window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
   async function saveCredential(provider: "github" | "gitlab", token: string) {
@@ -123,6 +173,27 @@ export default function SettingsPage() {
     }
 
     setStatus(data.credentials as CredentialStatus);
+    setBusy(null);
+  }
+
+  async function disconnectGitHubInstallation(installationId: string) {
+    setBusy(`github-app-delete-${installationId}`);
+    setError(null);
+
+    const response = await fetch("/api/integrations/github/installations", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ installationId }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      setError(typeof data?.error === "string" ? data.error : "Failed to disconnect GitHub App");
+      setBusy(null);
+      return;
+    }
+
+    setGitHubInstallations((data.installations ?? []) as GitHubAppInstallation[]);
     setBusy(null);
   }
 
@@ -247,10 +318,76 @@ export default function SettingsPage() {
       </section>
 
       <section className="pm-fade-stagger mt-8 grid gap-5 md:grid-cols-2">
+        <article className="pm-card p-6 md:p-7 md:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="pm-card-title">GitHub App Access</h2>
+              <p className="pm-card-subtitle">
+                Connect PatchMap to your GitHub account or organization so shared and org repos can be imported without relying on a personal token alone.
+              </p>
+            </div>
+            <a className="pm-button pm-button-primary" href="/api/integrations/github/connect">
+              Connect GitHub
+            </a>
+          </div>
+
+          <div className="pm-soft-panel mt-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--pm-text-soft)]">
+              Recommended for org repos
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[var(--pm-text)]">
+              Install the PatchMap GitHub App on the organizations or repositories you want to import. You can still keep a personal access token below as a fallback for personal repos.
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {hasGitHubAppAccess ? (
+              githubInstallations.map((installation) => (
+                <div
+                  key={installation.id}
+                  className="pm-soft-panel flex flex-wrap items-start justify-between gap-4"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-base font-semibold text-[var(--pm-text-strong)]">
+                        {installation.accountLogin}
+                      </div>
+                      <span className="pm-pill">{installation.accountType}</span>
+                      <span className="pm-pill">
+                        {installation.repositoriesSelection === "all"
+                          ? "All repositories"
+                          : "Selected repositories"}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-sm text-[var(--pm-text-soft)]">
+                      Connected {new Date(installation.updatedAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <button
+                    className="pm-button pm-button-secondary"
+                    type="button"
+                    onClick={() => disconnectGitHubInstallation(installation.id)}
+                    disabled={busy !== null}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="pm-alert">
+                No GitHub App installations connected yet. Use <span className="font-semibold">Connect GitHub</span> above to authorize org and shared repositories.
+              </div>
+            )}
+          </div>
+        </article>
+
         <article className="pm-card p-6 md:p-7">
           <h2 className="pm-card-title">GitHub Token</h2>
           <p className="pm-card-subtitle">
             Status: {status?.github ? `Connected (${new Date(status.github.updated_at).toLocaleString()})` : "Not set"}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-[var(--pm-text-soft)]">
+            Best for personal repos or as a fallback when a GitHub App installation is not available.
           </p>
           <label className="pm-label mt-2">
             Personal Access Token
@@ -284,7 +421,7 @@ export default function SettingsPage() {
               className="pm-button pm-button-secondary"
               type="button"
               onClick={() => revokeCredential("github")}
-              disabled={busy !== null}
+              disabled={busy !== null || !githubConnected}
             >
               Revoke
             </button>
@@ -328,7 +465,7 @@ export default function SettingsPage() {
               className="pm-button pm-button-secondary"
               type="button"
               onClick={() => revokeCredential("gitlab")}
-              disabled={busy !== null}
+              disabled={busy !== null || !gitlabConnected}
             >
               Revoke
             </button>
