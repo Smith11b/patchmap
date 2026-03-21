@@ -6,7 +6,9 @@
                     "dev":  "next dev",
                     "build":  "next build",
                     "start":  "next start",
-                    "lint":  "eslint"
+                    "lint":  "eslint",
+                    "local:setup":  "node scripts/setup-local.mjs",
+                    "local:start":  "node scripts/start-local.mjs"
                 },
     "dependencies":  {
                          "@supabase/supabase-js":  "^2.98.0",
